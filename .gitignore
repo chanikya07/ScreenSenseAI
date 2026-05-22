@@ -1,0 +1,4 @@
+.env
+.env.*
+.docx_extract/
+node_modules/

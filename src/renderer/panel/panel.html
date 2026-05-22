@@ -1,0 +1,4239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ScreenSense Panel</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0c0c14;
+    --bg2: #13131f;
+    --bg3: #1a1a2a;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.14);
+    --text: #e8e6f0;
+    --muted: rgba(232,230,240,0.45);
+    --accent: #7c6cfc;
+    --accent2: #38b6ff;
+    --amber: #ffaa32;
+    --coral: #ff6464;
+    --green: #32dc96;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: transparent;
+    color: var(--text);
+    width: 100vw;
+    height: 100vh;
+    min-width: 320px;
+    min-height: 480px;
+    overflow: hidden;
+  }
+
+  .panel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(120,100,255,0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slide-in 0.2s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+  .panel.maximized {
+    border-radius: 0;
+    border-color: transparent;
+  }
+
+  .panel-scroll {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(12px) scale(0.96); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+  }
+
+  /* Header */
+  .header {
+    position: relative;
+    padding: 0 0 0 16px;
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    -webkit-app-region: drag;
+  }
+
+  .header-main {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+
+  .brand {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    -webkit-app-region: no-drag;
+  }
+  .panel.maximized .brand { display: flex; }
+
+  .brand-orb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #2a2a3e, #0d0d1a);
+    border: 1px solid rgba(120,100,255,0.4);
+    box-shadow: 0 0 12px rgba(100,80,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .brand-orb svg { width: 14px; height: 14px; }
+
+  .brand-name {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+
+  .brand-tag {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .header-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 46px;
+    display: flex;
+    align-items: stretch;
+    flex: 0 0 auto;
+    z-index: 3;
+    -webkit-app-region: no-drag;
+  }
+
+  .task-tabs {
+    position: absolute;
+    top: 6px;
+    left: 14px;
+    right: 154px;
+    z-index: 2;
+    min-width: 0;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    -webkit-app-region: no-drag;
+  }
+  .panel.maximized .task-tabs {
+    left: 154px;
+    right: 154px;
+  }
+
+  .task-tab {
+    min-width: 86px;
+    max-width: 150px;
+    height: 26px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg2);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 8px;
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+  .task-tab.dragging {
+    opacity: 0.45;
+  }
+  .task-tab.drop-before {
+    box-shadow: inset 2px 0 0 var(--accent2);
+  }
+  .task-tab.drop-after {
+    box-shadow: inset -2px 0 0 var(--accent2);
+  }
+
+  .task-tab.active {
+    background: var(--bg3);
+    color: var(--text);
+    border-color: rgba(124,108,252,0.35);
+  }
+
+  .tab-status {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(232,230,240,0.24);
+    flex: 0 0 auto;
+  }
+  .task-tab.running .tab-status { background: var(--green); }
+  .task-tab.paused .tab-status { background: var(--amber); }
+
+  .tab-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .tab-close,
+  .tab-add {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .tab-close {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    font-size: 13px;
+    flex: 0 0 auto;
+  }
+  .tab-close:hover,
+  .tab-add:hover {
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+  }
+
+  .tab-add {
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 18px;
+    flex: 0 0 auto;
+  }
+
+  .icon-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 0;
+    border: 0;
+    background: transparent;
+    color: rgba(232,230,240,0.72);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, color 0.12s;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+  .icon-btn.close:hover { background: #c42b1c; color: #fff; }
+  .settings-btn { display: none; }
+  /* Source picker */
+  .source-section {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .source-select {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='rgba(232,230,240,0.4)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+  .source-select:hover, .source-select:focus { border-color: var(--border-hover); }
+
+  .source-tools {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .source-status {
+    font-size: 10.5px;
+    color: var(--muted);
+    line-height: 1.4;
+    flex: 1;
+  }
+
+  .source-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Reference text + similarity */
+  .reference-section {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .reference-input {
+    width: 100%;
+    min-height: 70px;
+    resize: vertical;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .reference-input:focus,
+  .reference-input:hover {
+    border-color: var(--border-hover);
+  }
+
+  .reference-actions {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ref-btn {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(124,108,252,0.3);
+    background: rgba(124,108,252,0.12);
+    color: var(--accent);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .ref-btn:hover {
+    background: rgba(124,108,252,0.2);
+  }
+
+  .similarity-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .similarity-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    letter-spacing: 0.03em;
+  }
+
+  .similarity-hint {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* Mode cards */
+  .modes-section {
+    padding: 14px 20px;
+    flex: 1;
+  }
+
+  .modes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .mode-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 14px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 110px;
+  }
+
+  .mode-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    opacity: 0;
+    transition: opacity 0.18s;
+  }
+
+  .mode-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+  .mode-card:hover::before { opacity: 1; }
+  .mode-card:active { transform: translateY(0); }
+
+  .mode-card.captions::before { background: radial-gradient(circle at 10% 10%, rgba(56,182,255,0.08), transparent 60%); }
+  .mode-card.scene::before    { background: radial-gradient(circle at 10% 10%, rgba(255,170,50,0.08), transparent 60%); }
+  .mode-card.transcript::before { background: radial-gradient(circle at 10% 10%, rgba(255,100,100,0.08), transparent 60%); }
+  .mode-card.summarizer::before { background: radial-gradient(circle at 10% 10%, rgba(50,220,150,0.08), transparent 60%); }
+
+  .mode-card:hover.captions { border-color: rgba(56,182,255,0.3); }
+  .mode-card:hover.scene    { border-color: rgba(255,170,50,0.3); }
+  .mode-card:hover.transcript { border-color: rgba(255,100,100,0.3); }
+  .mode-card:hover.summarizer { border-color: rgba(50,220,150,0.3); }
+
+  .mode-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .captions  .mode-icon { background: rgba(56,182,255,0.12); }
+  .scene     .mode-icon { background: rgba(255,170,50,0.12); }
+  .transcript .mode-icon { background: rgba(255,100,100,0.12); }
+  .summarizer .mode-icon { background: rgba(50,220,150,0.12); }
+
+  .mode-name {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--text);
+  }
+
+  .mode-desc {
+    font-size: 10.5px;
+    color: var(--muted);
+    line-height: 1.45;
+    flex: 1;
+  }
+
+  .mode-badge {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    align-self: flex-start;
+  }
+  .captions  .mode-badge { background: rgba(56,182,255,0.15); color: #38b6ff; }
+  .scene     .mode-badge { background: rgba(255,170,50,0.15); color: #ffaa32; }
+  .transcript .mode-badge { background: rgba(255,100,100,0.15); color: #ff6464; }
+  .summarizer .mode-badge { background: rgba(50,220,150,0.15); color: #32dc96; }
+
+  /* Active session view */
+  .active-view {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    padding: 0 20px 16px;
+  }
+
+  .active-view.visible { display: flex; }
+
+  .active-header {
+    padding: 16px 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .active-mode-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .active-label-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .active-timer {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    line-height: 1;
+  }
+
+  .panel.maximized .active-mode-label {
+    align-items: center;
+  }
+
+  .panel.maximized .active-label-stack {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #32dc96;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .stop-btn {
+    padding: 5px 12px;
+    background: rgba(255,100,100,0.1);
+    border: 1px solid rgba(255,100,100,0.25);
+    border-radius: 8px;
+    color: #ff6464;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .stop-btn:hover { background: rgba(255,100,100,0.2); }
+
+  .session-action-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .toggle-btn {
+    padding: 5px 12px;
+    background: rgba(84,181,255,0.1);
+    border: 1px solid rgba(84,181,255,0.25);
+    border-radius: 8px;
+    color: #54b5ff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .toggle-btn:hover { background: rgba(84,181,255,0.2); }
+
+  .transcript-feed {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .feed-entry {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    animation: fade-up 0.2s ease;
+  }
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .feed-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 9.5px;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .feed-text {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--text);
+    flex: 1;
+    white-space: pre-wrap;
+  }
+
+  .feed-text.scene-entry { color: rgba(255,200,100,0.9); font-size: 11px; }
+
+  /* Session chat */
+  .chat-drawer {
+    display: none;
+    flex-direction: column;
+    max-height: 240px;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.018);
+  }
+  .chat-drawer.open { display: flex; }
+
+  .chat-header {
+    padding: 10px 20px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.045);
+  }
+
+  .chat-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .chat-close {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .chat-close:hover { color: var(--text); }
+
+  .chat-messages {
+    min-height: 76px;
+    overflow-y: auto;
+    padding: 10px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .chat-message {
+    max-width: 88%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+  .chat-message.user {
+    align-self: flex-end;
+    background: rgba(124,108,252,0.12);
+    border-color: rgba(124,108,252,0.28);
+    color: var(--text);
+  }
+  .chat-message.assistant {
+    align-self: flex-start;
+    background: var(--bg2);
+    color: rgba(232,230,240,0.86);
+  }
+  .chat-message.system {
+    align-self: center;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 10.5px;
+  }
+
+  .chat-input-row {
+    padding: 0 20px 12px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .chat-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    padding: 8px 10px;
+    outline: none;
+  }
+  .chat-input:focus { border-color: var(--border-hover); }
+
+  .chat-send {
+    padding: 7px 12px;
+    background: rgba(56,182,255,0.12);
+    border: 1px solid rgba(56,182,255,0.32);
+    border-radius: 8px;
+    color: var(--accent2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .chat-send:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .footer-primary-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .export-btn {
+    padding: 5px 12px;
+    background: rgba(124,108,252,0.12);
+    border: 1px solid rgba(124,108,252,0.3);
+    border-radius: 8px;
+    color: var(--accent);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: none;
+  }
+  .export-btn:hover { background: rgba(124,108,252,0.2); }
+  .export-btn.visible { display: block; }
+
+  .settings-footer-btn {
+    padding: 5px 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .settings-footer-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+
+  .settings-language {
+    margin-left: 6px;
+    color: var(--accent2);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .chat-footer-btn {
+    padding: 5px 12px;
+    background: rgba(56,182,255,0.1);
+    border: 1px solid rgba(56,182,255,0.28);
+    border-radius: 8px;
+    color: var(--accent2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chat-footer-btn:hover { background: rgba(56,182,255,0.17); }
+
+  .video-btn {
+    padding: 5px 12px;
+    background: rgba(50,220,150,0.12);
+    border: 1px solid rgba(50,220,150,0.35);
+    border-radius: 8px;
+    color: #32dc96;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: none;
+  }
+  .video-btn:hover { background: rgba(50,220,150,0.2); }
+  .video-btn.visible { display: block; }
+  .video-btn:disabled {
+    opacity: 0.65;
+    cursor: wait;
+  }
+
+  .audio-btn {
+    padding: 5px 12px;
+    background: rgba(255,181,71,0.12);
+    border: 1px solid rgba(255,181,71,0.35);
+    border-radius: 8px;
+    color: #ffb547;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: none;
+  }
+  .audio-btn:hover { background: rgba(255,181,71,0.2); }
+  .audio-btn.visible { display: block; }
+  .audio-btn.recording {
+    background: rgba(255,100,100,0.14);
+    border-color: rgba(255,100,100,0.38);
+    color: #ff6464;
+  }
+  .audio-btn:disabled {
+    opacity: 0.65;
+    cursor: wait;
+  }
+
+  .timer {
+    display: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* Export modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+  }
+  .modal-backdrop.visible { display: flex; }
+  .export-modal {
+    width: 420px;
+    max-width: calc(100% - 40px);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  }
+  .export-modal h3 { margin-bottom: 8px; font-size: 14px; }
+  .export-lang-list { display: flex; flex-wrap: wrap; gap: 8px; max-height: 260px; overflow: auto; padding: 6px 0 10px; }
+  .export-lang-item { padding: 8px 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 600; }
+  .export-lang-item:hover { background: rgba(124,108,252,0.08); color: var(--text); border-color: rgba(124,108,252,0.28); }
+  .export-modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="panel">
+
+  <!-- Header -->
+  <div class="header" ondblclick="window.ss.toggleMaximizeWindow()">
+    <div class="brand">
+      <div class="brand-orb">
+        <svg viewBox="0 0 14 14" fill="none">
+          <ellipse cx="7" cy="7" rx="5.5" ry="4" stroke="rgba(160,140,255,0.9)" stroke-width="1"/>
+          <circle cx="7" cy="7" r="1.8" fill="rgba(120,100,255,0.8)"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">ScreenSense</div>
+        <div class="brand-tag">AI · Windows</div>
+      </div>
+    </div>
+    <div class="header-actions" ondblclick="event.stopPropagation()">
+      <button class="icon-btn settings-btn" onclick="window.ss.openSettings()" title="Settings">⚙</button>
+      <button class="icon-btn" onclick="window.ss.minimizeWindow()" title="Minimize">−</button>
+      <button class="icon-btn" id="maximizeBtn" onclick="window.ss.toggleMaximizeWindow()" title="Maximize">□</button>
+      <button class="icon-btn close" onclick="window.ss.closeWindow()" title="Close">×</button>
+    </div>
+  </div>
+
+  <div class="task-tabs" id="taskTabs"></div>
+
+  <div class="panel-scroll">
+  <!-- Source picker (idle only) -->
+  <div class="source-section" id="sourceSection">
+    <div class="section-label">Capture source</div>
+    <select class="source-select" id="sourceSelect">
+      <option value="">Loading sources...</option>
+    </select>
+    <div class="source-tools">
+      <div class="source-status" id="sourceStatus">Choose a full screen source to enable area selection.</div>
+      <div class="source-actions">
+        <button class="ref-btn" id="pickAreaBtn" onclick="pickAreaRegion()">Select Area</button>
+        <button class="ref-btn" id="clearAreaBtn" onclick="clearAreaRegion()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reference text + similarity (idle only) -->
+  <div class="reference-section" id="referenceSection">
+    <div class="section-label">Reference text</div>
+    <textarea
+      id="referenceInput"
+      class="reference-input"
+      placeholder="Paste the reference text here to compare with captured content."
+    ></textarea>
+    <div class="reference-actions">
+      <button class="ref-btn" onclick="generateSimilarityScore()">Generate Score</button>
+      <div class="similarity-box">
+        <div class="similarity-value" id="similarityValue">Similarity: --</div>
+        <div class="similarity-hint" id="similarityHint">Needs reference and captured text</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mode cards (idle) -->
+  <div class="modes-section" id="modesSection">
+    <div class="section-label" style="margin-bottom:10px">Choose a mode</div>
+    <div class="modes-grid">
+
+      <div class="mode-card captions" onclick="startMode('live-captions')">
+        <div class="mode-icon">💬</div>
+        <div class="mode-name">Live Captions</div>
+        <div class="mode-desc">Real-time subtitles with timestamps. Works on Meet, YouTube, and any video.</div>
+        <div class="mode-badge">Live</div>
+      </div>
+
+      <div class="mode-card scene" onclick="startMode('scene-explain')">
+        <div class="mode-icon">🎬</div>
+        <div class="mode-name">Scene Explainer</div>
+        <div class="mode-desc">BYOK visual scene summary. Uses your own API key to explain what's being taught, not just shown.</div>
+        <div class="mode-badge">Vision AI</div>
+      </div>
+
+      <div class="mode-card transcript" onclick="startMode('transcript')">
+        <div class="mode-icon">📝</div>
+        <div class="mode-name">Transcript Notes</div>
+        <div class="mode-desc">Full session transcript formatted as study notes. Exports to MD or PDF.</div>
+        <div class="mode-badge">Export</div>
+      </div>
+
+      <div class="mode-card summarizer" onclick="startMode('summarizer')">
+        <div class="mode-icon">✨</div>
+        <div class="mode-name">Summarizer</div>
+        <div class="mode-desc">NotebookLM-style summary with chapters, key points, and audio brief using your own BYOK provider.</div>
+        <div class="mode-badge">End of video</div>
+      </div>
+
+      <div class="mode-card scene" onclick="startMode('face-analysis')">
+        <div class="mode-icon">😊</div>
+        <div class="mode-name">Face Analyzer</div>
+        <div class="mode-desc">Detect visible faces, expressions, and how emotions shape the scene.</div>
+        <div class="mode-badge">Vision AI</div>
+      </div>
+
+      <div class="mode-card" style="background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(255,135,0,0.08)); border-color: rgba(255,215,0,0.2); cursor: pointer;" onclick="startMode('ai-authenticity')">
+        <div class="mode-icon">🔍</div>
+        <div class="mode-name">AI Fake Detector</div>
+        <div class="mode-desc">Analyze video frames for signs of AI-generated or synthetic deepfake content.</div>
+        <div class="mode-badge">Trust Check</div>
+      </div>
+
+      <div class="mode-card" style="background: linear-gradient(135deg, rgba(255,181,71,0.08), rgba(255,100,100,0.08)); border-color: rgba(255,181,71,0.28); cursor: pointer;" onclick="startMode('call-recording')">
+        <div class="mode-icon">REC</div>
+        <div class="mode-name">Call Recording</div>
+        <div class="mode-desc">Record system audio from the selected call, meeting, tab, or video and save it as an audio file.</div>
+        <div class="mode-badge">Audio</div>
+      </div>
+
+      <div class="mode-card" style="background: linear-gradient(135deg, rgba(50,220,150,0.08), rgba(56,182,255,0.08)); border-color: rgba(50,220,150,0.3); cursor: pointer;" onclick="window.ss.openFeedback()">
+        <div class="mode-icon">💬</div>
+        <div class="mode-name">Feedback</div>
+        <div class="mode-desc">Share your experience, report bugs, or suggest improvements.</div>
+        <div class="mode-badge">Community</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Active session view -->
+  <div class="active-view" id="activeView">
+    <div class="active-header">
+      <div class="active-mode-label">
+        <div class="live-dot"></div>
+        <div class="active-label-stack">
+          <span id="activeModeLabel">Live Captions</span>
+          <span class="active-timer" id="activeTimer">00:00</span>
+        </div>
+      </div>
+      <div class="session-action-row">
+        <button class="toggle-btn" id="playbackToggleBtn" onclick="toggleSessionPlayback()">Pause</button>
+        <button class="stop-btn" onclick="stopSession()">■ Stop</button>
+      </div>
+    </div>
+    <div class="transcript-feed" id="feed"></div>
+  </div>
+  </div>
+
+  <div class="chat-drawer" id="chatDrawer">
+    <div class="chat-header">
+      <div class="chat-title">Ask ScreenSense</div>
+      <button class="chat-close" onclick="toggleChat(false)" title="Close chat">×</button>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input
+        class="chat-input"
+        id="chatInput"
+        placeholder="Ask about captions, scene notes, summary, or face analysis"
+        onkeydown="handleChatInputKey(event)"
+      >
+      <button class="chat-send" id="chatSendBtn" onclick="sendChatQuestion()">Ask</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-primary-actions">
+      <button class="settings-footer-btn" onclick="window.ss.openSettings()">
+        Settings <span class="settings-language" id="langLabel">English</span>
+      </button>
+    </div>
+    <div class="timer" id="timer">00:00</div>
+    <div class="footer-actions">
+      <button class="chat-footer-btn" onclick="toggleChat()">Chat</button>
+      <button class="audio-btn" id="audioBtn" onclick="handleAudioRecordingButton()">Record Audio</button>
+      <button class="export-btn" id="exportBtn" onclick="doExport()">↓ Export</button>
+      <button class="video-btn" id="videoBtn" onclick="doGenerateVideo()">AI Video</button>
+      <button class="chat-footer-btn" onclick="window.ss.openFeedback()" title="Open Feedback">💬 Feedback</button>
+    </div>
+  </div>
+
+  <!-- Export language picker modal -->
+  <div class="modal-backdrop" id="exportModalBackdrop" onclick="closeExportModal(event)">
+    <div class="export-modal" id="exportModal" onclick="event.stopPropagation()">
+      <h3>Select export language</h3>
+      <div class="hint" style="font-size:12px;margin-bottom:8px;color:var(--muted)">Click a language to export the summary in that language.</div>
+      <div class="export-lang-list" id="exportLangList"></div>
+      <div class="modal-actions">
+        <button class="settings-footer-btn" onclick="closeExportModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const LANG_NAMES = {
+  default: 'Default (Original)',
+  en: 'English', hi: 'Hindi', te: 'Telugu', ta: 'Tamil', fr: 'French',
+  de: 'German', es: 'Spanish', zh: 'Chinese', ja: 'Japanese', ko: 'Korean',
+  ar: 'Arabic', pt: 'Portuguese', ru: 'Russian', it: 'Italian', nl: 'Dutch',
+  pl: 'Polish', tr: 'Turkish', vi: 'Vietnamese', th: 'Thai', id: 'Indonesian'
+};
+
+let sessionActive = false;
+let sessionPaused = false;
+let currentMode = null;
+let timerInterval = null;
+let sessionStartTime = null;
+let pauseStartedAt = null;
+let feedEntries = [];
+let transcriptEntries = [];
+let sceneEntries = [];
+let faceEntries = [];
+let availableSources = [];
+let activeSourceId = null;
+let selectedRegion = null;
+let captureStream = null;
+let audioStream = null;
+let mediaRecorder = null;
+let transcriptionChain = Promise.resolve();
+let sceneIntervalId = null;
+let isSceneRunning = false;
+let recorderRestartTimeoutId = null;
+let videoGenerationInProgress = false;
+let hasOpenAIVideoKey = false;
+let isSceneLoopRunning = false;
+let lastFrameHash = null;
+let lastSceneDescription = '';
+let repeatedFrameNoticeShown = false;
+let immediateSceneNoticeShown = false;
+let shouldAutoScrollFeed = true;
+let taskCounter = 0;
+let activeTaskId = null;
+let draggedTaskId = null;
+let taskTabDropped = false;
+let lastDragPosition = { x: 0, y: 0 };
+let chatOpen = false;
+let chatRequestInProgress = false;
+const tasks = new Map();
+
+// Semantic Chunking Constants
+const TRANSCRIPTION_SLICE_MS = 2500; // Max duration fallback (2.5 seconds)
+const FIRST_TRANSCRIPTION_SLICE_MS = 1600; // First chunk max duration (1.6 seconds)
+const SEMANTIC_SILENCE_RMS_THRESHOLD = 0.003; // RMS threshold for silence detection
+const SEMANTIC_SILENCE_DURATION_MS = 800; // Duration of silence to trigger chunk boundary (800ms)
+const SEMANTIC_MAX_CHUNK_DURATION_MS = 3500; // Maximum chunk duration (3.5 seconds) before forcing split for continuous speech
+const SEMANTIC_SPEECH_THRESHOLD = 0.005; // RMS threshold above which audio is considered active speech
+const SEMANTIC_CONTINUOUS_SPEECH_DURATION_MS = 3000; // If speaking continuously for 3 seconds, emit chunk anyway
+const SEMANTIC_ANALYSIS_WINDOW_MS = 50; // Window for analyzing audio levels (50ms)
+const TRANSCRIPTION_CONTEXT_ENTRIES = 4;
+const TRANSCRIPTION_CONTEXT_MAX_CHARS = 500;
+const LOCAL_WHISPER_BASE_URL = 'http://127.0.0.1:5001';
+const LOCAL_WHISPER_TRANSCRIBE_URL = 'http://127.0.0.1:5001/transcribe';
+const SILENCE_RMS_THRESHOLD = 0.003;
+const SILENCE_PEAK_THRESHOLD = 0.02;
+const MAX_FEED_ENTRIES = 500;
+const TRANSCRIPTION_MODELS = {
+  openai: {
+    transcription: 'whisper-1',
+    vision: 'gpt-4o-mini',
+    summary: 'gpt-4o-mini'
+  },
+  groq: {
+    transcription: 'whisper-large-v3',
+    vision: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    summary: 'llama-3.3-70b-versatile'
+  },
+  ollama: {
+    vision: 'llava',
+    summary: 'llama3.2'
+  }
+};
+
+const OLLAMA_CHAT_URL = 'http://localhost:11434/v1/chat/completions';
+const OLLAMA_SUMMARY_MODEL = TRANSCRIPTION_MODELS.ollama.summary;
+const ollamaUrl = OLLAMA_CHAT_URL;
+const ollamaModel = OLLAMA_SUMMARY_MODEL;
+
+const MODE_LABELS = {
+  'live-captions': 'Live Captions',
+  'scene-explain': 'Scene Explainer',
+  'transcript': 'Transcript Notes',
+  'summarizer': 'Summarizer',
+  'face-analysis': 'Face Analyzer',
+  'ai-authenticity': 'AI Fake Detector',
+  'call-recording': 'Call Recording'
+};
+
+const MODE_ICONS = {
+  'live-captions': '💬',
+  'scene-explain': '🎬',
+  'transcript': '📝',
+  'summarizer': '✨',
+  'face-analysis': '😊',
+  'ai-authenticity': '🔍'
+  , 'call-recording': 'REC'
+};
+
+function createTask() {
+  taskCounter += 1;
+  const id = `task-${Date.now()}-${taskCounter}`;
+  const firstScreenSource = availableSources.find((source) => source.type === 'screen') || availableSources[0] || null;
+  const task = {
+    id,
+    title: `Task ${taskCounter}`,
+    mode: null,
+    active: false,
+    paused: false,
+    sourceId: firstScreenSource?.id || '',
+    selectedRegion: null,
+    startTime: null,
+    pauseStartedAt: null,
+    feedEntries: [],
+    transcriptEntries: [],
+    sceneEntries: [],
+    faceEntries: [],
+    chatMessages: [],
+    timerInterval: null,
+    captureStream: null,
+    audioStream: null,
+    mediaRecorder: null,
+    transcriptionChain: Promise.resolve(),
+    noteGenerationChain: Promise.resolve(),
+    audioRecordingStream: null,
+    audioRecordingRecorder: null,
+    audioRecordingChunks: [],
+    audioRecordingMimeType: '',
+    audioRecordingInProgress: false,
+    audioRecordingExporting: false,
+    hasCapturedFirstAudioSlice: false,
+    sceneIntervalId: null,
+    recorderRestartTimeoutId: null,
+    processingRetryTimeoutId: null,
+    isSceneLoopRunning: false,
+    videoGenerationInProgress: false,
+    // Semantic Chunking state
+    audioContext: null,
+    analyzerNode: null,
+    scriptProcessor: null,
+    silenceDuration: 0,
+    chunkStartTime: null,
+    maxChunkTimeoutId: null
+  };
+  tasks.set(id, task);
+  activeTaskId = id;
+  renderTaskTabs();
+  renderActiveTask();
+  return task;
+}
+
+function getActiveTask() {
+  if (!activeTaskId || !tasks.has(activeTaskId)) {
+    return tasks.values().next().value || createTask();
+  }
+  return tasks.get(activeTaskId);
+}
+
+function switchTask(taskId) {
+  if (!tasks.has(taskId)) return;
+  activeTaskId = taskId;
+  renderTaskTabs();
+  renderActiveTask();
+}
+
+function closeTask(taskId) {
+  const task = tasks.get(taskId);
+  if (!task) return;
+  stopCallRecording(task);
+  teardownProcessing(task);
+  if (task.active || task.paused) {
+    window.ss.stopMode(task.id);
+  }
+  clearInterval(task.timerInterval);
+  tasks.delete(taskId);
+  if (!tasks.size) {
+    createTask();
+    return;
+  }
+  if (activeTaskId === taskId) {
+    activeTaskId = tasks.keys().next().value;
+  }
+  renderTaskTabs();
+  renderActiveTask();
+}
+
+function renderTaskTabs() {
+  const host = document.getElementById('taskTabs');
+  if (!host) return;
+  host.innerHTML = '';
+  for (const task of tasks.values()) {
+    const tab = document.createElement('div');
+    tab.className = `task-tab ${task.id === activeTaskId ? 'active' : ''} ${task.active ? 'running' : task.paused ? 'paused' : ''}`;
+    tab.draggable = true;
+    tab.dataset.taskId = task.id;
+    tab.onclick = () => switchTask(task.id);
+    tab.addEventListener('dragstart', (event) => handleTaskTabDragStart(event, task.id));
+    tab.addEventListener('dragover', handleTaskTabDragOver);
+    tab.addEventListener('dragleave', handleTaskTabDragLeave);
+    tab.addEventListener('drop', (event) => handleTaskTabDrop(event, task.id));
+    tab.addEventListener('dragend', handleTaskTabDragEnd);
+    tab.innerHTML = `
+      <span class="tab-status"></span>
+      <span class="tab-title">${task.title}</span>
+      <button class="tab-close" title="Close tab">×</button>
+    `;
+    tab.querySelector('.tab-close').onclick = (event) => {
+      event.stopPropagation();
+      closeTask(task.id);
+    };
+    host.appendChild(tab);
+  }
+  const addBtn = document.createElement('button');
+  addBtn.className = 'tab-add';
+  addBtn.title = 'New task tab';
+  addBtn.textContent = '+';
+  addBtn.onclick = () => createTask();
+  addBtn.addEventListener('dragover', (event) => event.preventDefault());
+  addBtn.addEventListener('drop', (event) => {
+    event.preventDefault();
+    taskTabDropped = true;
+    if (draggedTaskId) moveTaskTab(draggedTaskId, null, 'after');
+  });
+  host.appendChild(addBtn);
+}
+
+function serializeTaskForDetachedWindow(task) {
+  if (!task) return null;
+  return {
+    id: task.id,
+    title: task.title,
+    mode: task.mode,
+    active: task.active,
+    paused: task.paused,
+    sourceId: task.sourceId,
+    selectedRegion: task.selectedRegion,
+    startTime: task.startTime,
+    pauseStartedAt: task.pauseStartedAt,
+    feedEntries: task.feedEntries,
+    transcriptEntries: task.transcriptEntries,
+    sceneEntries: task.sceneEntries,
+    faceEntries: task.faceEntries,
+    chatMessages: task.chatMessages,
+    videoGenerationInProgress: task.videoGenerationInProgress
+  };
+}
+
+function hydrateDetachedTask(snapshot) {
+  const task = {
+    id: snapshot.id || `detached-${Date.now()}`,
+    title: snapshot.title || 'Detached Task',
+    mode: snapshot.mode || null,
+    active: Boolean(snapshot.active),
+    paused: Boolean(snapshot.paused),
+    sourceId: snapshot.sourceId || '',
+    selectedRegion: snapshot.selectedRegion || null,
+    startTime: snapshot.startTime || null,
+    pauseStartedAt: snapshot.pauseStartedAt || null,
+    feedEntries: Array.isArray(snapshot.feedEntries) ? snapshot.feedEntries : [],
+    transcriptEntries: Array.isArray(snapshot.transcriptEntries) ? snapshot.transcriptEntries : [],
+    sceneEntries: Array.isArray(snapshot.sceneEntries) ? snapshot.sceneEntries : [],
+    faceEntries: Array.isArray(snapshot.faceEntries) ? snapshot.faceEntries : [],
+    chatMessages: Array.isArray(snapshot.chatMessages) ? snapshot.chatMessages : [],
+    timerInterval: null,
+    captureStream: null,
+    audioStream: null,
+    mediaRecorder: null,
+    transcriptionChain: Promise.resolve(),
+    noteGenerationChain: Promise.resolve(),
+    audioRecordingStream: null,
+    audioRecordingRecorder: null,
+    audioRecordingChunks: [],
+    audioRecordingMimeType: '',
+    audioRecordingInProgress: false,
+    audioRecordingExporting: false,
+    hasCapturedFirstAudioSlice: false,
+    sceneIntervalId: null,
+    recorderRestartTimeoutId: null,
+    processingRetryTimeoutId: null,
+    isSceneLoopRunning: false,
+    videoGenerationInProgress: Boolean(snapshot.videoGenerationInProgress)
+  };
+
+  tasks.clear();
+  tasks.set(task.id, task);
+  activeTaskId = task.id;
+  renderTaskTabs();
+  renderActiveTask();
+  if (task.active || task.paused) startSessionTimer(task);
+}
+
+function clearTaskTabDropHints() {
+  document.querySelectorAll('.task-tab.drop-before, .task-tab.drop-after').forEach((tab) => {
+    tab.classList.remove('drop-before', 'drop-after');
+  });
+}
+
+function getTabDropPosition(event, tab) {
+  const rect = tab.getBoundingClientRect();
+  return event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+}
+
+function handleTaskTabDragStart(event, taskId) {
+  draggedTaskId = taskId;
+  taskTabDropped = false;
+  lastDragPosition = { x: event.clientX, y: event.clientY };
+  event.currentTarget.classList.add('dragging');
+  window.ss.panelTabDragStart?.();
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', taskId);
+}
+
+function handleTaskTabDragOver(event) {
+  event.preventDefault();
+  lastDragPosition = { x: event.clientX, y: event.clientY };
+  if (!draggedTaskId || event.currentTarget.dataset.taskId === draggedTaskId) return;
+  clearTaskTabDropHints();
+  event.currentTarget.classList.add(getTabDropPosition(event, event.currentTarget) === 'before' ? 'drop-before' : 'drop-after');
+}
+
+function handleTaskTabDragLeave(event) {
+  event.currentTarget.classList.remove('drop-before', 'drop-after');
+}
+
+function handleTaskTabDrop(event, targetTaskId) {
+  event.preventDefault();
+  taskTabDropped = true;
+  if (!draggedTaskId || draggedTaskId === targetTaskId) return;
+  moveTaskTab(draggedTaskId, targetTaskId, getTabDropPosition(event, event.currentTarget));
+}
+
+function handleTaskTabDragEnd(event) {
+  event.currentTarget.classList.remove('dragging');
+  maybeDetachDraggedTask(event);
+  window.ss.panelTabDragEnd?.();
+  draggedTaskId = null;
+  taskTabDropped = false;
+  clearTaskTabDropHints();
+}
+
+function maybeDetachDraggedTask(event) {
+  if (!draggedTaskId || taskTabDropped) return;
+  const tabHost = document.getElementById('taskTabs');
+  const draggedTask = tasks.get(draggedTaskId);
+  if (!tabHost || !draggedTask) return;
+
+  const rect = tabHost.getBoundingClientRect();
+  const x = event.clientX || lastDragPosition.x;
+  const y = event.clientY || lastDragPosition.y;
+  const draggedOut =
+    x < rect.left - 24 ||
+    x > rect.right + 24 ||
+    y < rect.top - 32 ||
+    y > rect.bottom + 48;
+
+  if (draggedOut) {
+    const snapshot = serializeTaskForDetachedWindow(draggedTask);
+    setTimeout(() => window.ss.detachTaskWindow(snapshot), 0);
+  }
+}
+
+function moveTaskTab(sourceTaskId, targetTaskId, position = 'after') {
+  const orderedTasks = Array.from(tasks.entries());
+  const sourceIndex = orderedTasks.findIndex(([id]) => id === sourceTaskId);
+  if (sourceIndex < 0) return;
+
+  const [sourceEntry] = orderedTasks.splice(sourceIndex, 1);
+  let insertIndex = targetTaskId
+    ? orderedTasks.findIndex(([id]) => id === targetTaskId)
+    : orderedTasks.length - 1;
+
+  if (insertIndex < 0) insertIndex = orderedTasks.length;
+  if (position === 'after') insertIndex += 1;
+
+  orderedTasks.splice(insertIndex, 0, sourceEntry);
+  tasks.clear();
+  orderedTasks.forEach(([id, task]) => tasks.set(id, task));
+  draggedTaskId = null;
+  renderTaskTabs();
+}
+
+function syncLegacyState(task = getActiveTask()) {
+  sessionActive = task.active;
+  sessionPaused = task.paused;
+  currentMode = task.mode;
+  timerInterval = task.timerInterval;
+  sessionStartTime = task.startTime;
+  pauseStartedAt = task.pauseStartedAt;
+  feedEntries = task.feedEntries;
+  transcriptEntries = task.transcriptEntries;
+  sceneEntries = task.sceneEntries;
+  faceEntries = task.faceEntries;
+  activeSourceId = task.sourceId;
+  selectedRegion = task.selectedRegion;
+  captureStream = task.captureStream;
+  audioStream = task.audioStream;
+  mediaRecorder = task.mediaRecorder;
+  transcriptionChain = task.transcriptionChain;
+  sceneIntervalId = task.sceneIntervalId;
+  recorderRestartTimeoutId = task.recorderRestartTimeoutId;
+  isSceneLoopRunning = task.isSceneLoopRunning;
+  videoGenerationInProgress = task.videoGenerationInProgress;
+}
+
+// Init
+async function init() {
+  await loadSources();
+  createTask();
+  window.ss.ensureLocalWhisper?.().catch((error) => {
+    console.warn('Local Whisper warmup failed:', error);
+  });
+  document.addEventListener('dragover', (event) => {
+    if (draggedTaskId) lastDragPosition = { x: event.clientX, y: event.clientY };
+  });
+  document.getElementById('feed')?.addEventListener('scroll', handleFeedScroll, { passive: true });
+  const settings = await window.ss.getAllSettings();
+  document.getElementById('langLabel').textContent = LANG_NAMES[settings.preferredOutputLanguage] || settings.preferredOutputLanguage;
+  updateVideoCapability(settings);
+}
+
+function updateVideoCapability(settings) {
+  const openaiKeys = parseApiKeys(settings.openaiKey || '');
+  hasOpenAIVideoKey = openaiKeys.some((key) => key.startsWith('sk-'));
+}
+
+function updateVideoButtonState() {
+  const task = getActiveTask();
+  const btn = document.getElementById('videoBtn');
+  if (!btn) return;
+
+  btn.disabled = !hasOpenAIVideoKey || task.videoGenerationInProgress;
+  if (hasOpenAIVideoKey) {
+    btn.title = 'Generate AI video from summary';
+    btn.textContent = task.videoGenerationInProgress ? 'Generating...' : 'AI Video';
+  } else {
+    btn.title = 'Video generation requires OpenAI sk-... key';
+    btn.textContent = 'AI Video (OpenAI)';
+  }
+}
+
+function updateAudioButtonState(task = getActiveTask()) {
+  const btn = document.getElementById('audioBtn');
+  if (!btn) return;
+
+  const hasRecording = (task.audioRecordingChunks || []).length > 0;
+  btn.classList.add('visible');
+  btn.classList.toggle('recording', Boolean(task.audioRecordingInProgress));
+  btn.disabled = Boolean(task.audioRecordingExporting);
+
+  if (task.audioRecordingExporting) {
+    btn.textContent = 'Saving...';
+    btn.title = 'Saving audio recording';
+  } else if (task.audioRecordingInProgress) {
+    btn.textContent = 'Stop Audio';
+    btn.title = 'Stop call audio recording';
+  } else if (hasRecording) {
+    btn.textContent = 'Save Audio';
+    btn.title = 'Save recorded call audio to Downloads';
+  } else {
+    btn.textContent = 'Record Audio';
+    btn.title = 'Record system audio from the selected screen or window';
+  }
+}
+
+function renderActiveTask() {
+  const task = getActiveTask();
+  syncLegacyState(task);
+
+  const sourceSelect = document.getElementById('sourceSelect');
+  if (sourceSelect && task.sourceId) {
+    sourceSelect.value = task.sourceId;
+  }
+
+  const isRunningOrPaused = task.active || task.paused;
+  document.getElementById('sourceSection').style.display = isRunningOrPaused ? 'none' : '';
+  document.getElementById('referenceSection').style.display = isRunningOrPaused ? 'none' : '';
+  document.getElementById('modesSection').style.display = isRunningOrPaused ? 'none' : '';
+  document.getElementById('activeView').classList.toggle('visible', isRunningOrPaused);
+
+  const label = task.mode ? `${MODE_ICONS[task.mode] || ''} ${MODE_LABELS[task.mode] || task.mode}`.trim() : task.title;
+  document.getElementById('activeModeLabel').textContent = label;
+  setPlaybackButtonState(task);
+
+  const feed = document.getElementById('feed');
+  feed.innerHTML = '';
+  task.feedEntries.forEach((entry) => appendFeedEntryToDom(entry));
+  if (shouldAutoScrollFeed) scrollFeedToBottom(feed);
+
+  document.getElementById('exportBtn').classList.toggle('visible', isRunningOrPaused);
+  document.getElementById('videoBtn').classList.toggle('visible', task.mode === 'summarizer');
+  updateDisplayedTimers(task);
+  updateVideoButtonState();
+  updateAudioButtonState(task);
+  updateAreaControls();
+  renderChatMessages(task);
+}
+
+async function loadSources() {
+  availableSources = await window.ss.getSources();
+  const sel = document.getElementById('sourceSelect');
+  sel.innerHTML = availableSources.map(s =>
+    `<option value="${s.id}">${s.name}</option>`
+  ).join('');
+  const firstScreenSource = availableSources.find((source) => source.type === 'screen');
+  if (firstScreenSource) {
+    sel.value = firstScreenSource.id;
+  }
+  sel.addEventListener('change', handleSourceChange);
+}
+
+function getSelectedSource() {
+  const task = getActiveTask();
+  const sourceId = task.sourceId || document.getElementById('sourceSelect').value;
+  return availableSources.find((source) => source.id === sourceId) || null;
+}
+
+function getRegionLabel(region) {
+  return `${region.width} x ${region.height} px`;
+}
+
+function getActiveRegionForSource(sourceId) {
+  const task = getActiveTask();
+  return task.selectedRegion && task.selectedRegion.sourceId === sourceId ? task.selectedRegion : null;
+}
+
+function handleSourceChange() {
+  const task = getActiveTask();
+  task.sourceId = document.getElementById('sourceSelect').value;
+  const source = getSelectedSource();
+  if (task.selectedRegion && task.selectedRegion.sourceId !== source?.id) {
+    task.selectedRegion = null;
+  }
+  updateAreaControls(source);
+}
+
+function updateAreaControls(source = getSelectedSource()) {
+  const status = document.getElementById('sourceStatus');
+  const pickBtn = document.getElementById('pickAreaBtn');
+  const clearBtn = document.getElementById('clearAreaBtn');
+  const region = getActiveRegionForSource(source?.id);
+
+  if (!source) {
+    status.textContent = 'Choose a source to continue.';
+    pickBtn.disabled = true;
+    clearBtn.disabled = true;
+    return;
+  }
+
+  if (source.type !== 'screen') {
+    status.textContent = 'Area selection currently works on full-screen sources. Window capture will use the whole window.';
+    pickBtn.disabled = true;
+    clearBtn.disabled = !region;
+    return;
+  }
+
+  pickBtn.disabled = false;
+  clearBtn.disabled = !region;
+  status.textContent = region
+    ? `Selected area: ${getRegionLabel(region)}`
+    : 'No area selected. Scene analysis will use the whole screen until you crop it.';
+}
+
+async function pickAreaRegion() {
+  const source = getSelectedSource();
+  if (!source) {
+    addFeedEntry('Choose a screen source before selecting an area.', '00:00', 'scene');
+    return;
+  }
+  if (source.type !== 'screen') {
+    addFeedEntry('Area selection currently works only with full-screen capture sources.', '00:00', 'scene');
+    return;
+  }
+
+  try {
+    document.getElementById('sourceStatus').textContent = 'Opening area selector...';
+    const region = await window.ss.pickRegion(source.id);
+    if (!region) {
+      updateAreaControls(source);
+      return;
+    }
+    getActiveTask().selectedRegion = { ...region, sourceId: source.id };
+    updateAreaControls(source);
+  } catch (error) {
+    console.error(error);
+    updateAreaControls(source);
+    addFeedEntry(error.message || 'Unable to open area selector.', '00:00', 'scene');
+  }
+}
+
+function clearAreaRegion() {
+  getActiveTask().selectedRegion = null;
+  updateAreaControls();
+}
+
+function startSessionTimer(task = getActiveTask()) {
+  clearInterval(task.timerInterval);
+  task.timerInterval = setInterval(() => {
+    if (task.id === activeTaskId) updateTimer(task);
+  }, 1000);
+  if (task.id === activeTaskId) updateTimer(task);
+}
+
+function setPlaybackButtonState(task = getActiveTask()) {
+  const btn = document.getElementById('playbackToggleBtn');
+  if (!btn) return;
+  btn.textContent = task.paused ? 'Play' : 'Pause';
+  btn.title = task.paused ? 'Resume session' : 'Pause session';
+}
+
+function startMode(mode) {
+  const sourceId = document.getElementById('sourceSelect').value;
+  if (!sourceId) {
+    addFeedEntry('Choose a screen or window source before starting.', '00:00', 'scene');
+    return;
+  }
+
+  currentMode = mode;
+  activeSourceId = sourceId;
+  sessionActive = true;
+  sessionPaused = false;
+  sessionStartTime = Date.now();
+  pauseStartedAt = null;
+  feedEntries = [];
+  transcriptEntries = [];
+  sceneEntries = [];
+  faceEntries = [];
+  transcriptionChain = Promise.resolve();
+  setPlaybackButtonState();
+  window.ss.startMode(mode, task.id);
+
+  const labels = {
+    'live-captions': '💬 Live Captions',
+    'scene-explain': '🎬 Scene Explainer',
+    'transcript': '📝 Transcript Notes',
+    'summarizer': '✨ Summarizer',
+    'face-analysis': '😊 Face Analyzer',
+    'ai-authenticity': '🔍 AI Fake Detector'
+  };
+  document.getElementById('activeModeLabel').textContent = labels[mode] || mode;
+
+  document.getElementById('sourceSection').style.display = 'none';
+  document.getElementById('referenceSection').style.display = 'none';
+  document.getElementById('modesSection').style.display = 'none';
+  document.getElementById('activeView').classList.add('visible');
+
+  if (mode === 'summarizer') {
+    addFeedEntry('Collecting live captions and scene notes in the background. Use Export to generate the combined summary.', '00:00', 'scene');
+  }
+  if (mode === 'ai-authenticity') {
+    addFeedEntry('Analyzing video frames for AI-generated content and deepfake signals.', '00:00', 'scene');
+  }
+
+  startSessionTimer();
+
+  if (mode === 'live-captions' || mode === 'transcript' || mode === 'scene-explain' || mode === 'summarizer' || mode === 'face-analysis' || mode === 'ai-authenticity') {
+    document.getElementById('exportBtn').classList.add('visible');
+  }
+  if (mode === 'summarizer') {
+    document.getElementById('videoBtn').classList.add('visible');
+    updateVideoButtonState();
+    if (!hasOpenAIVideoKey) {
+      addFeedEntry('AI Video requires OpenAI sk-... key. Your gsk_ key will still work for summary and transcript.', '00:00', 'scene');
+    }
+  }
+
+  startProcessing(mode, sourceId).catch((error) => {
+    console.error(error);
+    addFeedEntry(error.message || 'Unable to start live transcription.', '00:00', 'scene');
+    stopSession();
+  });
+}
+
+function pauseSession() {
+  if (!sessionActive || sessionPaused) return;
+
+  sessionPaused = true;
+  sessionActive = false;
+  pauseStartedAt = Date.now();
+  clearInterval(timerInterval);
+  timerInterval = null;
+  teardownProcessing();
+  window.ss.stopMode(task.id);
+  setPlaybackButtonState();
+  addFeedEntry('Session paused.', getElapsedTimestamp(), 'scene');
+}
+
+function resumeSession() {
+  if (!sessionPaused || !currentMode || !activeSourceId) return;
+
+  const pausedFor = pauseStartedAt ? Date.now() - pauseStartedAt : 0;
+  sessionStartTime = (sessionStartTime || Date.now()) + pausedFor;
+  pauseStartedAt = null;
+  sessionPaused = false;
+  sessionActive = true;
+  window.ss.startMode(currentMode);
+  setPlaybackButtonState();
+  startSessionTimer();
+  addFeedEntry('Session resumed.', getElapsedTimestamp(), 'scene');
+
+  startProcessing(currentMode, activeSourceId).catch((error) => {
+    console.error(error);
+    sessionActive = false;
+    sessionPaused = true;
+    pauseStartedAt = Date.now();
+    clearInterval(timerInterval);
+    timerInterval = null;
+    window.ss.stopMode();
+    setPlaybackButtonState();
+    addFeedEntry(error.message || 'Unable to resume the session.', getElapsedTimestamp(), 'scene');
+  });
+}
+
+function toggleSessionPlayback() {
+  if (sessionPaused) {
+    resumeSession();
+    return;
+  }
+
+  pauseSession();
+}
+
+function stopSession() {
+  sessionActive = false;
+  sessionPaused = false;
+  pauseStartedAt = null;
+  teardownProcessing();
+  activeSourceId = null;
+  window.ss.stopMode();
+  clearInterval(timerInterval);
+  timerInterval = null;
+  setPlaybackButtonState();
+
+  document.getElementById('sourceSection').style.display = '';
+  document.getElementById('referenceSection').style.display = '';
+  document.getElementById('modesSection').style.display = '';
+  document.getElementById('activeView').classList.remove('visible');
+  document.getElementById('exportBtn').classList.remove('visible');
+  document.getElementById('videoBtn').classList.remove('visible');
+  document.getElementById('videoBtn').disabled = false;
+  document.getElementById('videoBtn').textContent = 'AI Video';
+  document.getElementById('feed').innerHTML = '';
+  document.getElementById('timer').textContent = '00:00';
+  transcriptEntries = [];
+  sceneEntries = [];
+  faceEntries = [];
+}
+
+function startMode(mode) {
+  const task = getActiveTask();
+  const sourceId = document.getElementById('sourceSelect').value;
+  if (!sourceId) {
+    addFeedEntry('Choose a screen or window source before starting.', '00:00', 'scene', task);
+    return;
+  }
+
+  task.mode = mode;
+  task.title = MODE_LABELS[mode] || task.title;
+  task.sourceId = sourceId;
+  task.active = true;
+  task.paused = false;
+  task.startTime = Date.now();
+  task.pauseStartedAt = null;
+  task.feedEntries = [];
+  task.transcriptEntries = [];
+  task.sceneEntries = [];
+  task.faceEntries = [];
+  task.chatMessages = [];
+  task.transcriptionChain = Promise.resolve();
+  task.noteGenerationChain = Promise.resolve();
+  task.audioRecordingChunks = [];
+  task.audioRecordingMimeType = '';
+  task.audioRecordingExporting = false;
+  task.hasCapturedFirstAudioSlice = false;
+
+  window.ss.startMode(mode, task.id);
+  renderTaskTabs();
+  renderActiveTask();
+
+  if (mode === 'summarizer') {
+    addFeedEntry('Collecting live captions and scene notes in the background. Use Export to generate the combined summary.', '00:00', 'scene', task);
+    if (!hasOpenAIVideoKey) {
+      addFeedEntry('AI Video requires OpenAI sk-... key. Your gsk_ key will still work for summary and transcript.', '00:00', 'scene', task);
+    }
+  }
+
+  startSessionTimer(task);
+  updateVideoButtonState();
+
+  if (mode === 'call-recording') {
+    addFeedEntry('Starting call audio recording...', '00:00', 'scene', task);
+    startCallRecording(task);
+    return;
+  }
+
+  startProcessing(task, mode, sourceId).catch((error) => {
+    handleProcessingStartupError(task, mode, sourceId, error);
+  });
+}
+
+function pauseSession() {
+  const task = getActiveTask();
+  if (!task.active || task.paused) return;
+
+  task.paused = true;
+  task.active = false;
+  task.pauseStartedAt = Date.now();
+  clearInterval(task.timerInterval);
+  task.timerInterval = null;
+  stopCallRecording(task);
+  teardownProcessing(task);
+  window.ss.stopMode(task.id);
+  addFeedEntry('Session paused.', getElapsedTimestamp(task), 'scene', task);
+  renderTaskTabs();
+  renderActiveTask();
+}
+
+function resumeSession() {
+  const task = getActiveTask();
+  if (!task.paused || !task.mode || !task.sourceId) return;
+
+  const pausedFor = task.pauseStartedAt ? Date.now() - task.pauseStartedAt : 0;
+  task.startTime = (task.startTime || Date.now()) + pausedFor;
+  task.pauseStartedAt = null;
+  task.paused = false;
+  task.active = true;
+  window.ss.startMode(task.mode, task.id);
+  startSessionTimer(task);
+  addFeedEntry('Session resumed.', getElapsedTimestamp(task), 'scene', task);
+  renderTaskTabs();
+  renderActiveTask();
+
+  startProcessing(task, task.mode, task.sourceId).catch((error) => {
+    handleProcessingStartupError(task, task.mode, task.sourceId, error);
+  });
+}
+
+function handleProcessingStartupError(task, mode, sourceId, error) {
+  console.error(error);
+  if (!task.active) return;
+
+  const message = error.message || 'Unable to start live transcription.';
+  const alreadyShown = task.feedEntries.some((entry) => entry.text === message);
+  if (!alreadyShown) {
+    addFeedEntry(message, getElapsedTimestamp(task), 'scene', task);
+  }
+
+  if (isLocalWhisperStartupError(error) && mode !== 'scene-explain' && mode !== 'ai-authenticity') {
+    scheduleProcessingRetry(task, mode, sourceId);
+    return;
+  }
+
+  task.paused = true;
+  task.active = false;
+  task.pauseStartedAt = Date.now();
+  clearInterval(task.timerInterval);
+  task.timerInterval = null;
+  window.ss.stopMode(task.id);
+  addFeedEntry('Session paused. Fix the issue, then press Play to try again.', getElapsedTimestamp(task), 'scene', task);
+  renderTaskTabs();
+  renderActiveTask();
+}
+
+function isLocalWhisperStartupError(error) {
+  return /local whisper/i.test(error?.message || '');
+}
+
+function scheduleProcessingRetry(task, mode, sourceId) {
+  if (task.processingRetryTimeoutId) return;
+  const waitMessage = 'Waiting for local Whisper on 127.0.0.1:5001. If Python is installed, ScreenSense will try to start it automatically.';
+  if (!task.feedEntries.some((entry) => entry.text === waitMessage)) {
+    addFeedEntry(waitMessage, getElapsedTimestamp(task), 'scene', task);
+  }
+  task.processingRetryTimeoutId = setTimeout(() => {
+    task.processingRetryTimeoutId = null;
+    if (!task.active || task.paused) return;
+    startProcessing(task, mode, sourceId).catch((error) => {
+      handleProcessingStartupError(task, mode, sourceId, error);
+    });
+  }, 3000);
+}
+
+function toggleSessionPlayback() {
+  const task = getActiveTask();
+  if (task.paused) {
+    resumeSession();
+    return;
+  }
+  pauseSession();
+}
+
+function stopSession(taskId = activeTaskId) {
+  const task = tasks.get(taskId);
+  if (!task) return;
+
+  task.active = false;
+  task.paused = false;
+  task.pauseStartedAt = null;
+  stopCallRecording(task);
+  teardownProcessing(task);
+  clearInterval(task.timerInterval);
+  task.timerInterval = null;
+  task.mode = null;
+  task.startTime = null;
+  task.videoGenerationInProgress = false;
+  task.feedEntries = [];
+  task.transcriptEntries = [];
+  task.sceneEntries = [];
+  task.faceEntries = [];
+  task.chatMessages = [];
+  task.transcriptionChain = Promise.resolve();
+  task.noteGenerationChain = Promise.resolve();
+  window.ss.stopMode(task.id);
+
+  renderTaskTabs();
+  if (task.id === activeTaskId) renderActiveTask();
+}
+
+function tokenizeText(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((token) => token.length > 1);
+}
+
+function buildTermFrequency(tokens) {
+  const map = new Map();
+  tokens.forEach((token) => {
+    map.set(token, (map.get(token) || 0) + 1);
+  });
+  return map;
+}
+
+function cosineSimilarity(aText, bText) {
+  const aTokens = tokenizeText(aText);
+  const bTokens = tokenizeText(bText);
+  if (!aTokens.length || !bTokens.length) return 0;
+
+  const aFreq = buildTermFrequency(aTokens);
+  const bFreq = buildTermFrequency(bTokens);
+  let dot = 0;
+  let aMagSq = 0;
+  let bMagSq = 0;
+
+  for (const [, count] of aFreq) {
+    aMagSq += count * count;
+  }
+  for (const [, count] of bFreq) {
+    bMagSq += count * count;
+  }
+  for (const [term, aCount] of aFreq) {
+    const bCount = bFreq.get(term) || 0;
+    dot += aCount * bCount;
+  }
+
+  if (!aMagSq || !bMagSq) return 0;
+  return dot / (Math.sqrt(aMagSq) * Math.sqrt(bMagSq));
+}
+
+function getCapturedComparisonText() {
+  const task = getActiveTask();
+  const transcriptText = task.transcriptEntries.map((entry) => entry.text).join(' ');
+  const sceneText = task.sceneEntries.map((entry) => entry.text).join(' ');
+  const feedText = task.feedEntries.map((entry) => entry.text).join(' ');
+  return `${transcriptText} ${sceneText} ${feedText}`.trim();
+}
+
+function setSimilarityStatus(scoreText, hintText) {
+  document.getElementById('similarityValue').textContent = `Similarity: ${scoreText}`;
+  document.getElementById('similarityHint').textContent = hintText;
+}
+
+function generateSimilarityScore() {
+  const referenceText = document.getElementById('referenceInput').value.trim();
+  const capturedText = getCapturedComparisonText();
+
+  if (!referenceText) {
+    setSimilarityStatus('--', 'Add reference text first');
+    return;
+  }
+  if (!capturedText) {
+    setSimilarityStatus('--', 'Start a session to capture text');
+    return;
+  }
+
+  const score = cosineSimilarity(referenceText, capturedText);
+  const percentage = Math.round(score * 100);
+  const qualityLabel = percentage >= 75
+    ? 'High match'
+    : percentage >= 45
+      ? 'Moderate match'
+      : 'Low match';
+  setSimilarityStatus(`${percentage}%`, qualityLabel);
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+  updateDisplayedTimers(null, `${m}:${s}`);
+}
+
+function addFeedEntry(text, time, type = 'transcript') {
+  const feed = document.getElementById('feed');
+  const el = document.createElement('div');
+  el.className = 'feed-entry';
+  el.innerHTML = `
+    <span class="feed-time">${time}</span>
+    <span class="feed-text ${type === 'scene' ? 'scene-entry' : ''}">${text}</span>
+  `;
+  feed.appendChild(el);
+  if (shouldAutoScrollFeed) scrollFeedToBottom(feed);
+  feedEntries.push({ text, time, type });
+  while (feedEntries.length > MAX_FEED_ENTRIES) {
+    feedEntries.shift();
+    feed.firstElementChild?.remove();
+  }
+}
+
+function formatTimestamp(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function getElapsedTimestamp() {
+  return formatTimestamp(sessionStartTime ? Date.now() - sessionStartTime : 0);
+}
+
+function getTaskDuration(task = getActiveTask()) {
+  if (!task.startTime) return 0;
+  const end = task.paused && task.pauseStartedAt ? task.pauseStartedAt : Date.now();
+  return Math.max(0, end - task.startTime);
+}
+
+function updateTimer(task = getActiveTask()) {
+  updateDisplayedTimers(task);
+}
+
+function updateDisplayedTimers(task = getActiveTask(), value = null) {
+  const timerText = value || formatTimestamp(getTaskDuration(task));
+  const footerTimer = document.getElementById('timer');
+  const activeTimer = document.getElementById('activeTimer');
+  if (footerTimer) footerTimer.textContent = timerText;
+  if (activeTimer) activeTimer.textContent = timerText;
+}
+
+function getElapsedTimestamp(task = getActiveTask()) {
+  return formatTimestamp(getTaskDuration(task));
+}
+
+function isFeedNearBottom(feed = document.getElementById('feed')) {
+  if (!feed) return true;
+  return feed.scrollHeight - feed.scrollTop - feed.clientHeight < 32;
+}
+
+function scrollFeedToBottom(feed = document.getElementById('feed')) {
+  if (!feed) return;
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function handleFeedScroll(event) {
+  shouldAutoScrollFeed = isFeedNearBottom(event.currentTarget);
+}
+
+function appendFeedEntryToDom(entry) {
+  const feed = document.getElementById('feed');
+  const el = document.createElement('div');
+  el.className = 'feed-entry';
+  el.innerHTML = `
+    <span class="feed-time">${entry.time}</span>
+    <span class="feed-text ${entry.type === 'scene' ? 'scene-entry' : ''}">${entry.text}</span>
+  `;
+  feed.appendChild(el);
+}
+
+function addFeedEntry(text, time, type = 'transcript', task = getActiveTask()) {
+  const entry = { text, time, type };
+  task.feedEntries.push(entry);
+  while (task.feedEntries.length > MAX_FEED_ENTRIES) {
+    task.feedEntries.shift();
+  }
+  if (task.id === activeTaskId) {
+    const feed = document.getElementById('feed');
+    const wasNearBottom = isFeedNearBottom(feed);
+    appendFeedEntryToDom(entry);
+    while (feed.children.length > task.feedEntries.length) {
+      feed.firstElementChild?.remove();
+    }
+    if (shouldAutoScrollFeed && wasNearBottom) scrollFeedToBottom(feed);
+  }
+}
+
+function toggleChat(forceOpen = null) {
+  chatOpen = forceOpen === null ? !chatOpen : Boolean(forceOpen);
+  document.getElementById('chatDrawer')?.classList.toggle('open', chatOpen);
+  if (chatOpen) {
+    renderChatMessages();
+    setTimeout(() => document.getElementById('chatInput')?.focus(), 0);
+  }
+}
+
+function renderChatMessages(task = getActiveTask()) {
+  const host = document.getElementById('chatMessages');
+  if (!host) return;
+  host.innerHTML = '';
+  const messages = task.chatMessages || [];
+  if (!messages.length) {
+    appendChatMessageToDom({ role: 'system', text: 'Ask a question about the current tab output.' });
+    return;
+  }
+  messages.forEach((message) => appendChatMessageToDom(message));
+  host.scrollTop = host.scrollHeight;
+}
+
+function appendChatMessageToDom(message) {
+  const host = document.getElementById('chatMessages');
+  if (!host) return;
+  const el = document.createElement('div');
+  el.className = `chat-message ${message.role || 'assistant'}`;
+  el.textContent = message.text || '';
+  host.appendChild(el);
+  host.scrollTop = host.scrollHeight;
+}
+
+function addChatMessage(role, text, task = getActiveTask()) {
+  const message = { role, text, time: Date.now() };
+  task.chatMessages = task.chatMessages || [];
+  task.chatMessages.push(message);
+  while (task.chatMessages.length > 40) task.chatMessages.shift();
+  if (task.id === activeTaskId) appendChatMessageToDom(message);
+  return message;
+}
+
+function handleChatInputKey(event) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    sendChatQuestion();
+  }
+}
+
+function buildChatContext(task = getActiveTask()) {
+  const data = getTaskSessionData(task);
+  const transcriptText = data.transcript.length
+    ? data.transcript.slice(-80).map((entry) => `[${entry.time}] ${entry.text}`).join('\n')
+    : 'No live captions/transcript captured yet.';
+  const sceneText = data.scenes.length
+    ? data.scenes.slice(-60).map((entry) => `[${entry.time}] ${entry.text}`).join('\n')
+    : 'No scene notes captured yet.';
+  const faceText = data.faces?.length
+    ? data.faces.slice(-40).map((entry) => `[${entry.time}] ${entry.text}`).join('\n')
+    : 'No face analysis captured yet.';
+  const feedText = task.feedEntries.length
+    ? task.feedEntries.slice(-80).map((entry) => `[${entry.time}] ${entry.text}`).join('\n')
+    : 'No visible feed entries yet.';
+
+  return `Task title: ${task.title}
+Mode: ${task.mode || 'not started'}
+Duration: ${formatTimestamp(data.duration)}
+
+Live captions / transcript:
+${transcriptText}
+
+Scene notes:
+${sceneText}
+
+Face analysis:
+${faceText}
+
+Visible feed:
+${feedText}`;
+}
+
+async function sendChatQuestion() {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  const question = input?.value.trim();
+  if (!question || chatRequestInProgress) return;
+
+  const task = getActiveTask();
+  toggleChat(true);
+  addChatMessage('user', question, task);
+  input.value = '';
+  chatRequestInProgress = true;
+  if (sendBtn) sendBtn.disabled = true;
+
+  try {
+    const settings = await window.ss.getAllSettings();
+    const apiKey = getPrimaryApiKey(settings);
+    if (!apiKey) {
+      throw new Error('Add your Groq or OpenAI API key in Settings to use chat.');
+    }
+    const answer = await answerSessionQuestion(question, task, settings, apiKey);
+    addChatMessage('assistant', answer, task);
+  } catch (error) {
+    console.error(error);
+    addChatMessage('assistant', error.message || 'Unable to answer that question right now.', task);
+  } finally {
+    chatRequestInProgress = false;
+    if (sendBtn) sendBtn.disabled = false;
+    input?.focus();
+  }
+}
+
+async function answerSessionQuestion(question, task, settings, apiKey) {
+  const provider = getApiProvider(apiKey);
+  const targetLanguage = getOutputLanguageCode(settings);
+  const languageInstruction = targetLanguage
+    ? `Answer in ${LANG_NAMES[targetLanguage] || targetLanguage}.`
+    : 'Answer in the same language as the question when possible.';
+
+  const recentChat = (task.chatMessages || [])
+    .slice(-8)
+    .map((message) => `${message.role}: ${message.text}`)
+    .join('\n');
+
+  const response = await fetch(getApiBaseUrl(provider) + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: TRANSCRIPTION_MODELS[provider].summary,
+      ...(provider === 'groq' ? { max_completion_tokens: 700 } : { max_tokens: 700 }),
+      messages: [
+        {
+          role: 'system',
+          content: `You are ScreenSense Chat. Answer questions using only the provided current tab context from live captions, transcript notes, scene analysis, summary output, and face analysis. If the answer is not in the captured context, say what is missing and suggest what to capture next. Be concise and directly useful. ${languageInstruction}`
+        },
+        {
+          role: 'user',
+          content: `Current tab context:\n${buildChatContext(task)}\n\nRecent chat:\n${recentChat || 'No prior chat.'}\n\nQuestion:\n${question}`
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${capitalizeProvider(provider)} chat failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return normalizeTranscript(data.choices?.[0]?.message?.content || 'No answer generated.');
+}
+
+function getSupportedAudioMimeType() {
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus'
+  ];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function getSupportedRecordingMimeType() {
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm'
+  ];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function shouldTranscribeAudioForMode(mode) {
+  return mode === 'live-captions' || mode === 'transcript' || mode === 'summarizer';
+}
+
+async function getDesktopStream(sourceId, includeAudio = true) {
+  return navigator.mediaDevices.getUserMedia({
+    audio: includeAudio
+      ? {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: sourceId
+          }
+        }
+      : false,
+    video: {
+      mandatory: {
+        chromeMediaSource: 'desktop',
+        chromeMediaSourceId: sourceId,
+        minWidth: 1280,
+        maxWidth: 1280,
+        minHeight: 720,
+        maxHeight: 720
+      }
+    }
+  });
+}
+
+async function getDesktopAudioStream(sourceId) {
+  const stream = await getDesktopStream(sourceId, true);
+  const audioTracks = stream.getAudioTracks();
+  stream.getVideoTracks().forEach((track) => track.stop());
+
+  if (!audioTracks.length) {
+    stream.getTracks().forEach((track) => track.stop());
+    throw new Error('No system audio track was available for this source. Try selecting an entire screen, enable system audio sharing, or choose a source that is playing audio.');
+  }
+
+  return new MediaStream(audioTracks);
+}
+
+// Semantic Chunking Functions
+function calculateRMS(audioData) {
+  let sum = 0;
+  for (let i = 0; i < audioData.length; i++) {
+    sum += audioData[i] * audioData[i];
+  }
+  return Math.sqrt(sum / audioData.length);
+}
+
+function initializeSemanticChunking(task) {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    task.audioContext = audioContext;
+
+    // Create an analyzer node to monitor audio levels
+    task.analyzerNode = audioContext.createAnalyser();
+    task.analyzerNode.fftSize = 2048;
+    task.analyzerNode.smoothingTimeConstant = 0.8;
+
+    // Create a script processor for real-time audio analysis
+    const bufferSize = 4096;
+    task.scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+    
+    // Connect the audio stream through the analyzer and script processor
+    const source = audioContext.createMediaStreamAudioSource(task.audioStream);
+    source.connect(task.analyzerNode);
+    task.analyzerNode.connect(task.scriptProcessor);
+    task.scriptProcessor.connect(audioContext.destination);
+
+    // Track silence and continuous speech for semantic chunking
+    let consecutiveSilenceFrames = 0;
+    let continuousSpeechStartTime = null;
+    const silenceFramesThreshold = Math.ceil((SEMANTIC_SILENCE_DURATION_MS / (bufferSize / 48000)) / 1000);
+    task.chunkStartTime = Date.now();
+
+    task.scriptProcessor.onaudioprocess = (event) => {
+      if (!task.active || !task.mediaRecorder) return;
+
+      const inputData = event.inputBuffer.getChannelData(0);
+      const rms = calculateRMS(inputData);
+
+      // Detect silence vs speech
+      if (rms < SEMANTIC_SILENCE_RMS_THRESHOLD) {
+        consecutiveSilenceFrames++;
+        continuousSpeechStartTime = null; // Reset continuous speech timer
+      } else {
+        consecutiveSilenceFrames = 0;
+        // Track when continuous speech starts
+        if (!continuousSpeechStartTime && rms > SEMANTIC_SPEECH_THRESHOLD) {
+          continuousSpeechStartTime = Date.now();
+        }
+      }
+
+      // Check for semantic chunk boundaries
+      const chunkDuration = Date.now() - task.chunkStartTime;
+      const continuousSpeechDuration = continuousSpeechStartTime ? (Date.now() - continuousSpeechStartTime) : 0;
+
+      // Emit chunk when:
+      // 1. Silence detected after speech (natural pause)
+      // 2. Continuous speech for 3+ seconds (aggressive chunking for non-stop talkers)
+      // 3. Max duration reached (safety net)
+      const shouldEmitOnSilence = consecutiveSilenceFrames > silenceFramesThreshold && chunkDuration > 300;
+      const shouldEmitOnContinuousSpeech = continuousSpeechDuration >= SEMANTIC_CONTINUOUS_SPEECH_DURATION_MS && chunkDuration >= 2000;
+      const shouldEmitOnMaxDuration = chunkDuration >= SEMANTIC_MAX_CHUNK_DURATION_MS;
+
+      if ((shouldEmitOnSilence || shouldEmitOnContinuousSpeech || shouldEmitOnMaxDuration) && task.mediaRecorder.state === 'recording') {
+        task.mediaRecorder.stop();
+        consecutiveSilenceFrames = 0;
+        continuousSpeechStartTime = null;
+        task.chunkStartTime = Date.now();
+      }
+    };
+  } catch (error) {
+    console.warn('Semantic chunking initialization failed, falling back to fixed time chunks:', error);
+    // Fall back to fixed time chunks if audio analyzer fails
+    task.audioContext = null;
+    task.analyzerNode = null;
+    task.scriptProcessor = null;
+  }
+}
+
+function cleanupSemanticChunking(task) {
+  if (task.maxChunkTimeoutId) {
+    clearTimeout(task.maxChunkTimeoutId);
+    task.maxChunkTimeoutId = null;
+  }
+
+  if (task.scriptProcessor) {
+    try {
+      task.scriptProcessor.disconnect();
+    } catch (e) {
+      // Already disconnected or invalid node
+    }
+    task.scriptProcessor = null;
+  }
+
+  if (task.analyzerNode) {
+    try {
+      task.analyzerNode.disconnect();
+    } catch (e) {
+      // Already disconnected or invalid node
+    }
+    task.analyzerNode = null;
+  }
+
+  if (task.audioContext && task.audioContext.state !== 'closed') {
+    try {
+      task.audioContext.close();
+    } catch (e) {
+      // Already closed
+    }
+    task.audioContext = null;
+  }
+
+  task.silenceDuration = 0;
+  task.chunkStartTime = null;
+}
+
+async function startProcessing(task, mode, sourceId) {
+  const settings = await window.ss.getAllSettings();
+  const shouldTranscribeAudio = shouldTranscribeAudioForMode(mode);
+
+  if (mode === 'scene-explain') {
+    startSceneLoop(settings, task);
+  }
+
+  if (shouldTranscribeAudio) {
+    await ensureLocalWhisperServer();
+  }
+
+  task.captureStream = await getDesktopStream(sourceId, shouldTranscribeAudio);
+  const audioTracks = task.captureStream.getAudioTracks();
+
+  if (audioTracks.length && shouldTranscribeAudio) {
+    task.audioStream = new MediaStream(audioTracks);
+    const mimeType = getSupportedAudioMimeType();
+    task.mediaRecorder = mimeType
+      ? new MediaRecorder(task.audioStream, { mimeType })
+      : new MediaRecorder(task.audioStream);
+
+    // Initialize semantic chunking for this task
+    initializeSemanticChunking(task);
+
+    task.mediaRecorder.addEventListener('dataavailable', (event) => {
+      if (!task.active || !event.data || event.data.size === 0) return;
+      task.transcriptionChain = task.transcriptionChain
+        .then(() => transcribeChunk(event.data, settings, task))
+        .catch((error) => {
+          console.error('Transcription error:', error);
+          if (task.active && shouldTranscribeAudioForMode(task.mode)) {
+            addFeedEntry(error.message || 'Transcription failed.', getElapsedTimestamp(task), 'scene', task);
+          }
+        });
+    });
+    task.mediaRecorder.addEventListener('stop', () => {
+      if (!task.active) return;
+      task.recorderRestartTimeoutId = setTimeout(() => {
+        if (task.active) {
+          startRecorderSlice(task);
+        }
+      }, 120);
+    });
+
+    startRecorderSlice(task);
+  }
+
+  if (mode !== 'scene-explain' && (mode === 'summarizer' || mode === 'face-analysis' || mode === 'ai-authenticity')) {
+    startSceneLoop(settings, task);
+  }
+}
+
+async function ensureLocalWhisperServer() {
+  if (await isLocalWhisperHealthy()) return;
+
+  const started = await window.ss.ensureLocalWhisper?.();
+  if (started?.ok) return;
+
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  if (await isLocalWhisperHealthy()) return;
+
+  const detail = started?.error ? ` ${started.error}` : '';
+  throw new Error(`Local Whisper is starting or not available yet.${detail}`);
+}
+
+async function isLocalWhisperHealthy() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 1200);
+
+  try {
+    const response = await fetch(`${LOCAL_WHISPER_BASE_URL}/health`, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error('Health check failed.');
+    }
+    return true;
+  } catch (error) {
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function shouldCaptureFaceNotes(mode = getActiveTask().mode) {
+  return mode === 'summarizer' || mode === 'face-analysis';
+}
+
+function teardownProcessing(task = getActiveTask()) {
+  clearTimeout(task.sceneIntervalId);
+  task.sceneIntervalId = null;
+  task.isSceneLoopRunning = false;
+  isSceneRunning = false;
+  lastFrameHash = null;
+  lastSceneDescription = '';
+  repeatedFrameNoticeShown = false;
+  immediateSceneNoticeShown = false;
+  clearTimeout(task.recorderRestartTimeoutId);
+  task.recorderRestartTimeoutId = null;
+  clearTimeout(task.processingRetryTimeoutId);
+  task.processingRetryTimeoutId = null;
+  task.transcriptionChain = Promise.resolve();
+  task.noteGenerationChain = Promise.resolve();
+
+  if (task.mediaRecorder && task.mediaRecorder.state !== 'inactive') {
+    task.mediaRecorder.stop();
+  }
+  task.mediaRecorder = null;
+
+  if (task.audioStream) {
+    task.audioStream.getTracks().forEach((track) => track.stop());
+  }
+  task.audioStream = null;
+
+  // Cleanup semantic chunking resources
+  cleanupSemanticChunking(task);
+
+  if (task.captureStream) {
+    task.captureStream.getTracks().forEach((track) => track.stop());
+  }
+  task.captureStream = null;
+}
+
+function startRecorderSlice(task = getActiveTask()) {
+  if (!task.mediaRecorder || task.mediaRecorder.state !== 'inactive' || !task.active) return;
+
+  task.mediaRecorder.start();
+  task.chunkStartTime = Date.now();
+  task.silenceDuration = 0;
+  
+  // Determine max duration based on whether this is the first chunk
+  const maxDuration = task.hasCapturedFirstAudioSlice ? TRANSCRIPTION_SLICE_MS : FIRST_TRANSCRIPTION_SLICE_MS;
+  task.hasCapturedFirstAudioSlice = true;
+
+  // Set a maximum chunk duration as a safety net
+  // The semantic chunking will stop the recorder on silence detection,
+  // but if no silence is detected, we force a chunk after max duration
+  task.maxChunkTimeoutId = setTimeout(() => {
+    if (task.mediaRecorder && task.mediaRecorder.state === 'recording' && task.active) {
+      task.mediaRecorder.stop();
+    }
+  }, Math.max(SEMANTIC_MAX_CHUNK_DURATION_MS, maxDuration));
+}
+
+async function transcribeChunk(blob, settings, task = getActiveTask()) {
+  if (!(await hasAudibleSignal(blob))) return;
+
+  const apiKey = getPrimaryApiKey(settings);
+  const provider = apiKey ? getApiProvider(apiKey) : '';
+  const result = await transcribeAudioChunk(blob, settings);
+  if (!result || !task.active) return;
+
+  // If we have multiple segments, try to detect original languages per-segment and translate per-speaker.
+  const targetLang = getOutputLanguageCode(settings);
+  const segments = Array.isArray(result.segments) ? result.segments : [{ text: result.text || '', start: null, end: null, language: '' }];
+
+  if (apiKey && segments.length > 1 && settings.speakerDiarization) {
+    const translated = await translateSegmentsIfNeeded(segments, provider, apiKey, targetLang);
+    // Group consecutive segments by original language to approximate speaker-language labeling.
+    let speakerIndex = 0;
+    let lastLang = null;
+    for (const seg of translated) {
+      const origLang = (seg.language || '').toLowerCase() || '';
+      if (origLang !== lastLang) {
+        speakerIndex += 1;
+        lastLang = origLang;
+      }
+      const speakerLabel = `Speaker ${speakerIndex}`;
+      const speakerLangName = origLang ? (LANG_NAMES[origLang] || origLang) : '';
+      const captionText = sanitizeCaptionText(seg.text || '');
+      if (!captionText || !task.active) continue;
+      window.ss.appendTranscript({
+        text: captionText,
+        time: getElapsedTimestamp(task),
+        taskId: task.id,
+        speaker: speakerLangName ? `${speakerLabel} • ${speakerLangName}` : speakerLabel
+      });
+    }
+    return;
+  }
+
+  // Single segment fallback: translate/cleanup as before
+  const outputText = await translateTranscriptIfNeeded(result.text || '', apiKey, settings);
+  const captionText = sanitizeCaptionText(outputText);
+  if (!captionText || !task.active) return;
+  window.ss.appendTranscript({ text: captionText, time: getElapsedTimestamp(task), taskId: task.id });
+}
+
+async function transcribeAudioChunk(audioBlob, settings) {
+  const formData = new FormData();
+  formData.append('audio', audioBlob, 'chunk.webm');
+
+  const inputLanguage = getInputLanguageCode(settings);
+  if (inputLanguage) {
+    formData.append('language', inputLanguage);
+  }
+
+  let response;
+  try {
+    response = await fetch(LOCAL_WHISPER_TRANSCRIBE_URL, {
+      method: 'POST',
+      body: formData
+    });
+  } catch (error) {
+    throw new Error('Local Whisper is not running. Open a terminal in the app folder and run: python local_whisper_server.py');
+  }
+
+  if (!response.ok) {
+    const errorText = await readLocalWhisperError(response);
+    throw new Error(`Local Whisper transcription failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (data.skipped) {
+    return { text: '', segments: [] };
+  }
+  // For downstream logic we want segments and optional language info when available.
+  const out = { text: String(data.text || ''), segments: [] };
+  const detectedLanguage = String(data.language || '');
+
+  if (data.segments && Array.isArray(data.segments) && data.segments.length) {
+    out.segments = data.segments.map((s) => ({
+      text: String(s.text || '').trim(),
+      start: typeof s.start === 'number' ? s.start : null,
+      end: typeof s.end === 'number' ? s.end : null,
+      language: s.language || s.lang || detectedLanguage
+    })).filter(s => s.text);
+  } else if (out.text) {
+    out.segments = [{ text: out.text, start: null, end: null, language: detectedLanguage }];
+  }
+
+  return out;
+}
+
+async function readLocalWhisperError(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    try {
+      const data = await response.json();
+      return data.error || data.reason || `HTTP ${response.status}`;
+    } catch (error) {
+      return `HTTP ${response.status}`;
+    }
+  }
+
+  const text = await response.text();
+  return text
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 220) || `HTTP ${response.status}`;
+}
+
+// Detect the language of a short text using the LLM provider (returns ISO code or empty)
+async function detectLanguageForText(text, provider, apiKey) {
+  if (!text || text.trim().length < 2) return '';
+  try {
+    const res = await fetch(getApiBaseUrl(provider) + '/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: TRANSCRIPTION_MODELS[provider].summary,
+        messages: [
+          { role: 'system', content: 'Detect the language of the provided text and return only the 2-letter ISO code (e.g. en, es, fr). If unsure, return an empty string.' },
+          { role: 'user', content: text }
+        ],
+        ...(provider === 'groq' ? { max_completion_tokens: 8 } : { max_tokens: 8 })
+      })
+    });
+    if (!res.ok) return '';
+    const j = await res.json();
+    const code = String(j.choices?.[0]?.message?.content || '').trim().toLowerCase();
+    return code.replace(/[^a-z]/g, '').slice(0,2);
+  } catch (e) {
+    return '';
+  }
+}
+
+// Translate an array of segments into a single target language and return normalized translated segments.
+async function translateSegmentsIfNeeded(segments, provider, apiKey, targetLang) {
+  if (!segments || !segments.length) return [];
+  // If no targetLang requested, just return segments (but ensure language tags exist)
+  if (!targetLang) {
+    // fill missing language codes by detecting a best-effort language
+    await Promise.all(segments.map(async (s) => {
+      if (!s.language) s.language = await detectLanguageForText(s.text, provider, apiKey) || '';
+    }));
+    return segments;
+  }
+
+  // Build a JSON-friendly prompt describing segments and ask the model to translate each segment,
+  // returning a JSON array: [{text:..., start:..., end:..., original_language: 'xx'}]
+  const system = `Translate the following transcript segments into ${LANG_NAMES[targetLang] || targetLang}. Return a JSON array of objects with keys: text, start, end, original_language. Do not add any explanation.`;
+  const userContent = segments.map((s, i) => `Segment ${i + 1} [${s.start ?? 'null'}-${s.end ?? 'null'}] (${s.language || 'unknown'}): ${s.text}`).join('\n');
+
+  const res = await fetch(getApiBaseUrl(provider) + '/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: TRANSCRIPTION_MODELS[provider].summary,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: userContent }
+      ],
+      ...(provider === 'groq' ? { max_completion_tokens: 400 } : { max_tokens: 400 })
+    })
+  });
+
+  if (!res.ok) {
+    // fallback: detect languages then return original segments
+    await Promise.all(segments.map(async (s) => { if (!s.language) s.language = await detectLanguageForText(s.text, provider, apiKey) || ''; }));
+    return segments;
+  }
+
+  try {
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    // Try to parse JSON from the model output
+    const firstBracket = content.indexOf('[');
+    const jsonStr = firstBracket >= 0 ? content.slice(firstBracket) : content;
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed) ? parsed.map((p, i) => ({
+      text: String(p.text || segments[i]?.text || '').trim(),
+      start: p.start ?? segments[i]?.start ?? null,
+      end: p.end ?? segments[i]?.end ?? null,
+      language: String(p.original_language || segments[i]?.language || '')
+    })) : segments;
+  } catch (e) {
+    await Promise.all(segments.map(async (s) => { if (!s.language) s.language = await detectLanguageForText(s.text, provider, apiKey) || ''; }));
+    return segments;
+  }
+}
+
+async function translateTranscriptIfNeeded(text, apiKey, settings) {
+  const targetLanguage = getOutputLanguageCode(settings);
+  const shouldTranslate = settings.autoTranslate !== false && !!targetLanguage;
+  if (!shouldTranslate && settings.captionCleanup === false) {
+    return text;
+  }
+  if (!apiKey) {
+    return text;
+  }
+
+  const provider = getApiProvider(apiKey);
+  const sourceLanguage = getInputLanguageCode(settings);
+  const sourceLanguageName = sourceLanguage ? LANG_NAMES[sourceLanguage] || sourceLanguage : 'the detected language';
+  const systemContent = shouldTranslate
+    ? `Translate the user's transcript from ${sourceLanguageName} to ${LANG_NAMES[targetLanguage] || targetLanguage}. Correct obvious transcription spelling mistakes, but do not invent missing words. Return only the caption text, with no explanation, no labels, and no preface.`
+    : `You are a caption proofreader for ${sourceLanguageName}. Fix only obvious OCR/transcription spelling, spacing, and punctuation errors. Preserve the same language and the same meaning. Never explain what you are doing. Never say the text is already in a language. Never add a preface, label, summary, or note. If unsure, return the input exactly. Return only the corrected caption text.`;
+
+  const response = await fetch(getApiBaseUrl(provider) + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: TRANSCRIPTION_MODELS[provider].summary,
+      ...(provider === 'groq' ? { max_completion_tokens: 300 } : { max_tokens: 300 }),
+      messages: [
+        {
+          role: 'system',
+          content: systemContent
+        },
+        {
+          role: 'user',
+          content: text
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${capitalizeProvider(provider)} translation failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return sanitizeCaptionText(data.choices?.[0]?.message?.content || text);
+}
+
+function buildLocalTranscriptNote(text = '') {
+  const clean = normalizeTranscript(text)
+    .replace(/^(so|okay|ok|um|uh|like|you know)[, ]+/i, '')
+    .trim();
+  if (!clean) return '';
+
+  const label = /\?$/.test(clean) ? 'Question' : 'Note';
+  return `• ${label}: ${clean}`;
+}
+
+async function generateTranscriptNote(entry, task, settings) {
+  const text = sanitizeCaptionText(entry?.text || '');
+  if (!text) return '';
+
+  const apiKey = getPrimaryApiKey(settings);
+  if (!apiKey) {
+    return buildLocalTranscriptNote(text);
+  }
+
+  const provider = getApiProvider(apiKey);
+  const targetLanguage = getOutputLanguageCode(settings);
+  const languageInstruction = targetLanguage
+    ? `Write the note in ${LANG_NAMES[targetLanguage] || targetLanguage}.`
+    : '';
+  const recentTranscript = task.transcriptEntries
+    .slice(-6)
+    .map((item) => `[${item.time}] ${item.text}`)
+    .join('\n');
+
+  try {
+    const data = await runProviderChatCompletion(provider, apiKey, {
+      model: TRANSCRIPTION_MODELS[provider].summary,
+      [getProviderTokenField(provider)]: 180,
+      temperature: 0.2,
+      top_p: 0.8,
+      messages: [
+        {
+          role: 'system',
+          content: `You turn live transcript snippets into concise study notes. Do not return a raw transcript. Do not mention captions, transcription, or audio. Write 1-2 useful Markdown bullets with the main idea, action item, definition, or question. Merge filler words and repeated fragments. ${languageInstruction}`.trim()
+        },
+        {
+          role: 'user',
+          content: `Recent context:\n${recentTranscript || text}\n\nNewest snippet:\n${text}`
+        }
+      ]
+    });
+    const note = normalizeTranscript(data.choices?.[0]?.message?.content || '');
+    return note || buildLocalTranscriptNote(text);
+  } catch (error) {
+    console.warn('Transcript note generation failed, using local note:', error.message || error);
+    return buildLocalTranscriptNote(text);
+  }
+}
+
+function getOutputLanguageCode(settings) {
+  const targetLanguage = settings?.preferredOutputLanguage || 'default';
+  return targetLanguage === 'default' || targetLanguage === 'auto' ? '' : targetLanguage;
+}
+
+function getInputLanguageCode(settings) {
+  const inputLanguage = settings?.preferredLanguage || 'auto';
+  return inputLanguage === 'auto' || inputLanguage === 'default' ? '' : inputLanguage;
+}
+
+function getRecentTranscriptContext(task = getActiveTask()) {
+  return task.transcriptEntries
+    .slice(-TRANSCRIPTION_CONTEXT_ENTRIES)
+    .map((entry) => entry.text)
+    .join(' ')
+    .slice(-TRANSCRIPTION_CONTEXT_MAX_CHARS)
+    .trim();
+}
+
+function normalizeTranscript(text) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+async function hasAudibleSignal(audioBlob) {
+  if (!audioBlob || audioBlob.size === 0) return false;
+
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) return true;
+
+  let audioContext = null;
+  try {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    audioContext = new AudioContextCtor();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    let peak = 0;
+    let sumSquares = 0;
+    let samples = 0;
+
+    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel += 1) {
+      const data = audioBuffer.getChannelData(channel);
+      const stride = Math.max(1, Math.floor(data.length / 12000));
+      for (let i = 0; i < data.length; i += stride) {
+        const value = Math.abs(data[i]);
+        peak = Math.max(peak, value);
+        sumSquares += value * value;
+        samples += 1;
+      }
+    }
+
+    const rms = samples ? Math.sqrt(sumSquares / samples) : 0;
+    return peak >= SILENCE_PEAK_THRESHOLD || rms >= SILENCE_RMS_THRESHOLD;
+  } catch (error) {
+    console.warn('Audio silence check skipped:', error);
+    return true;
+  } finally {
+    audioContext?.close?.();
+  }
+}
+
+function sanitizeCaptionText(text) {
+  const normalized = stripCaptionPreface(normalizeTranscript(text || ''));
+  if (!normalized) return '';
+
+  const leakedInstructionPatterns = [
+    /transcribe carefully/i,
+    /original script with correct spelling/i,
+    /for songs,? keep/i,
+    /sung words as lyrics/i,
+    /do not translate/i,
+    /return only the .*caption text/i,
+    /correct spelling, word breaks, and punctuation/i,
+    /do not summarize/i,
+    /do not invent/i,
+    /already in .+language/i,
+    /text is already in/i,
+    /returning it unchanged/i,
+    /ఇప్పటికే.*తెలుగు/i,
+    /తిరిగి ఇస్తున్న/i
+  ];
+
+  if (leakedInstructionPatterns.some((pattern) => pattern.test(normalized))) {
+    return '';
+  }
+
+  const plainText = normalized
+    .toLowerCase()
+    .replace(/[()[\]{}"'`.,!?;:|\\/<>*_~=-]/g, '')
+    .trim();
+  const noSpeechHallucinations = new Set([
+    'you',
+    'thank you',
+    'thanks for watching',
+    'subtitles by',
+    'music',
+    'background music'
+  ]);
+
+  if (noSpeechHallucinations.has(plainText) || /^subtitles by\b/i.test(normalized)) {
+    return '';
+  }
+
+  return normalized;
+}
+
+function stripCaptionPreface(text) {
+  return text
+    .replace(/^["'`]?this (?:text|caption|transcript) is already in [^:：]+[:：]\s*/i, '')
+    .replace(/^["'`]?the (?:text|caption|transcript) is already in [^:：]+[:：]\s*/i, '')
+    .replace(/^["'`]?here(?: is|'s) (?:the )?(?:corrected|cleaned|translated)? ?(?:caption|transcript|text)[:：]\s*/i, '')
+    .replace(/^ఈ (?:టెక్స్ట్|క్యాప్షన్|వాక్యం)[^:：]*(?:ఇప్పటికే|తెలుగు)[^:：]*(?:తిరిగి|ఇస్తున్న)[^:：]*[:：]\s*/i, '')
+    .trim();
+}
+
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i += 500) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
+function getFaceExpressionEmoji(expressionText = '') {
+  const text = expressionText.toLowerCase();
+  const matches = [
+    [/happy|joy|smil|delight|cheer|laugh|amused|pleased|grin/, '😊'],
+    [/excited|surpris|wide.?eyed|astonish|amazed/, '😮'],
+    [/sad|unhappy|tear|downcast|sorrow|upset/, '😢'],
+    [/angry|mad|annoyed|furious|irritated|frustrated/, '😠'],
+    [/confus|uncertain|puzzled|unsure|questioning/, '🤔'],
+    [/fear|scared|afraid|anxious|worried|nervous/, '😟'],
+    [/neutral|calm|relaxed|blank|serious|focused|attentive|concentrated/, '😐'],
+    [/tired|fatigue|sleepy|bored|drowsy/, '😴'],
+    [/disgust|displeased|grimace|uncomfortable/, '😬']
+  ];
+  const found = matches.find(([pattern]) => pattern.test(text));
+  return found ? found[1] : '🙂';
+}
+
+function addFaceExpressionEmojis(text = '') {
+  return text
+    .split('\n')
+    .map((line) => {
+      if (!/Expression\s*=/.test(line) || /[\u{1F300}-\u{1FAFF}]/u.test(line)) return line;
+      return line.replace(/(Expression\s*=\s*)([^|]+)/i, (match, label, expression) => {
+        const cleanExpression = expression.trim();
+        return `${label}${getFaceExpressionEmoji(cleanExpression)} ${cleanExpression} `;
+      });
+    })
+    .join('\n');
+}
+
+function shouldRunSceneLoop(task = getActiveTask()) {
+  return task.active && (task.mode === 'scene-explain' || task.mode === 'summarizer' || task.mode === 'face-analysis' || task.mode === 'ai-authenticity') && !!task.sourceId;
+}
+
+function startSceneLoop(settings, task = getActiveTask()) {
+  const configuredIntervalMs = Number(settings.sceneInterval) || 10000;
+  const intervalMs = task.mode === 'summarizer'
+    ? Math.min(configuredIntervalMs, 5000)
+    : configuredIntervalMs;
+  lastFrameHash = null;
+  lastSceneDescription = '';
+  repeatedFrameNoticeShown = false;
+  immediateSceneNoticeShown = false;
+  const scheduleNextRun = () => {
+    if (!shouldRunSceneLoop(task)) return;
+    task.sceneIntervalId = setTimeout(run, intervalMs);
+  };
+  const run = async () => {
+    if (!shouldRunSceneLoop(task) || task.isSceneLoopRunning) {
+      scheduleNextRun();
+      return;
+    }
+    if (isSceneRunning) {
+      scheduleNextRun();
+      return;
+    }
+    isSceneRunning = true;
+    task.isSceneLoopRunning = true;
+    try {
+      const activeRegion = task.selectedRegion && task.selectedRegion.sourceId === task.sourceId ? task.selectedRegion : null;
+      const frameDataUrl = await window.ss.captureFrame(task.sourceId, activeRegion);
+      if (!frameDataUrl) return;
+      if ((task.mode === 'scene-explain' || task.mode === 'face-analysis' || task.mode === 'ai-authenticity') && !immediateSceneNoticeShown) {
+        const noticeText = task.mode === 'face-analysis'
+          ? 'Current screen captured. Analyzing visible face expressions...'
+          : task.mode === 'ai-authenticity'
+            ? 'Current screen captured. Checking visual authenticity signals...'
+            : 'Current screen captured. Generating scene explanation...';
+        const noticeAppender = task.mode === 'face-analysis' ? window.ss.appendFace : window.ss.appendScene;
+        noticeAppender({
+          text: noticeText,
+          time: getElapsedTimestamp(task),
+          taskId: task.id
+        });
+        immediateSceneNoticeShown = true;
+      }
+      const frameHash = frameDataUrl.slice(100, 600);
+      if (frameHash === lastFrameHash) {
+        console.log('Frame unchanged — skipping');
+        if (task.mode === 'face-analysis' && !repeatedFrameNoticeShown) {
+          window.ss.appendFace({
+            text: 'Screen is unchanged. Waiting for a new frame or visible face movement...',
+            time: getElapsedTimestamp(task),
+            taskId: task.id
+          });
+          repeatedFrameNoticeShown = true;
+        }
+        if (task.mode === 'scene-explain' && !repeatedFrameNoticeShown) {
+          window.ss.appendScene({
+            text: `This scene is similar to the previous screen${lastSceneDescription ? `: ${lastSceneDescription}` : '.'}`,
+            time: getElapsedTimestamp(task),
+            taskId: task.id
+          });
+          repeatedFrameNoticeShown = true;
+        }
+        return;
+      }
+      lastFrameHash = frameHash;
+      repeatedFrameNoticeShown = false;
+
+      const recentTranscript = task.feedEntries
+        .filter((entry) => entry.type === 'transcript')
+        .slice(-3)
+        .map((entry) => entry.text)
+        .join(' ');
+      const transcriptContext = recentTranscript || task.transcriptEntries.slice(-3).map((entry) => entry.text).join(' ');
+
+      const timestamp = getElapsedTimestamp(task);
+      if (task.mode !== 'face-analysis') {
+        const apiKey = getPrimaryApiKey(settings);
+        const sceneText = task.mode === 'ai-authenticity'
+          ? await analyzeAuthenticity(frameDataUrl, transcriptContext, apiKey, settings.preferredOutputLanguage)
+          : await analyzeScene(frameDataUrl, transcriptContext, apiKey, settings.preferredOutputLanguage, task.mode);
+        if (!shouldRunSceneLoop(task)) return;
+        if (sceneText) {
+          if (task.mode === 'scene-explain') {
+            lastSceneDescription = sceneText.replace(/\s+/g, ' ').trim().slice(0, 140);
+          }
+          window.ss.appendScene({
+            text: sceneText,
+            time: timestamp,
+            taskId: task.id
+          });
+        }
+      }
+
+      if (shouldCaptureFaceNotes(task.mode)) {
+        const faceText = await analyzeScene(frameDataUrl, transcriptContext, getPrimaryApiKey(settings), settings.preferredOutputLanguage, 'face-analysis');
+        if (!faceText || !shouldRunSceneLoop(task)) return;
+
+        window.ss.appendFace({
+          text: addFaceExpressionEmojis(faceText),
+          time: timestamp,
+          taskId: task.id
+        });
+      }
+    } catch (error) {
+      console.error('Scene explain error:', error);
+      if (shouldRunSceneLoop(task)) {
+        const errorText = error.message || 'Scene analysis failed.';
+        const targetAppender = task.mode === 'face-analysis' ? window.ss.appendFace : window.ss.appendScene;
+        targetAppender({
+          text: errorText,
+          time: getElapsedTimestamp(task),
+          taskId: task.id
+        });
+      }
+    } finally {
+      task.isSceneLoopRunning = false;
+      isSceneRunning = false;
+      scheduleNextRun();
+    }
+  };
+
+  run();
+}
+
+async function analyzeScene(frameDataURL, recentTranscript, apiKey, outputLanguage, mode) {
+  // Try cloud provider APIs if an API key is available, otherwise fall back to local Ollama.
+  // Force local Ollama only when no API key is available or the provider call fails.
+  const targetLanguage = getOutputLanguageCode({ preferredOutputLanguage: outputLanguage });
+  const langInstruction = targetLanguage
+    ? `Respond in ${LANG_NAMES[targetLanguage] || targetLanguage}.`
+    : '';
+
+  let systemPrompt;
+  let userPrompt;
+
+  if (mode === 'face-analysis') {
+    systemPrompt = `You are a visual face-expression analyst. Analyze only the image frame. Do not transcribe audio, do not write captions, and do not summarize spoken words. Use emojis and concise visual evidence. ${langInstruction}`;
+    userPrompt = recentTranscript
+      ? `Optional audio context for mood only: "${recentTranscript}"\n\nLook at the frame and report visible faces only. Output format: Face [N]: [emoji] Expression = [emotion] | Confidence = [0-100]% | Explanation = [visible facial cues]. If no face is visible, say "No visible face detected in this frame."`
+      : `Look at the frame and report visible faces only. Output format: Face [N]: [emoji] Expression = [emotion] | Confidence = [0-100]% | Explanation = [visible facial cues]. If no face is visible, say "No visible face detected in this frame."`;
+  } else if (mode === 'summarizer') {
+    systemPrompt = `You are a precise frame note-taker. Describe only what is visible in this frame in 3-4 sentences. ${langInstruction}`;
+    userPrompt = recentTranscript
+      ? `Audio context: "${recentTranscript}"\n\nCapture main subject, visible actions, on-screen text, and content visible in frame.`
+      : `Capture main subject, visible actions, on-screen text, and content visible in frame.`;
+  } else {
+    systemPrompt = `You are a visual scene explainer. Describe the on-screen scene in 2-3 brief sentences. Include main activity, any teaching content, interface elements, and visible text/location details. ${langInstruction}`;
+    userPrompt = recentTranscript
+      ? `Audio context: "${recentTranscript}"\n\nExplain this scene. Highlight location/address and visible text.`
+      : `Explain this scene. Highlight location/address and visible text. No audio available.`;
+  }
+
+  // Compress image to reduce Ollama processing time
+  const compressedImageURL = await compressImageForVision(frameDataURL, mode);
+  
+  const maxTok = mode === 'summarizer' ? 300 : (mode === 'face-analysis' ? 200 : 120);
+  const provider = apiKey ? getApiProvider(apiKey) : null;
+
+  if (provider) {
+    const model = TRANSCRIPTION_MODELS[provider].vision;
+    const tokenField = getProviderTokenField(provider);
+    const requestBody = {
+      model,
+      [tokenField]: maxTok,
+      temperature: 0.3,
+      top_p: 0.8,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt.trim()
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: userPrompt
+            },
+            {
+              type: 'image_url',
+              image_url: { url: compressedImageURL }
+            }
+          ]
+        }
+      ]
+    };
+
+    try {
+      const data = await runProviderChatCompletion(provider, apiKey, requestBody);
+      return normalizeTranscript(data.choices?.[0]?.message?.content || '');
+    } catch (error) {
+      console.warn('Provider scene analysis failed, falling back to local Ollama:', error.message || error);
+    }
+  }
+
+  try {
+    const response = await fetch(OLLAMA_CHAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llava:latest',
+        max_tokens: maxTok,
+        temperature: 0.3,
+        top_p: 0.8,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt.trim()
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: userPrompt
+              },
+              {
+                type: 'image_url',
+                image_url: { url: compressedImageURL }
+              }
+            ]
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ollama scene analysis failed: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return normalizeTranscript(data.choices?.[0]?.message?.content || '');
+  } catch (error) {
+    // Fallback to uncompressed if compression fails
+    const response = await fetch(OLLAMA_CHAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llava:latest',
+        max_tokens: maxTok,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt.trim()
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: userPrompt
+              },
+              {
+                type: 'image_url',
+                image_url: { url: frameDataURL }
+              }
+            ]
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ollama scene analysis failed: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return normalizeTranscript(data.choices?.[0]?.message?.content || '');
+  }
+}
+
+function compressImageForVision(dataURL, mode) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      // Reduce resolution based on mode: face-analysis needs clarity, scene-explain can be smaller
+      const maxWidth = mode === 'face-analysis' ? 768 : 640;
+      const maxHeight = mode === 'face-analysis' ? 576 : 480;
+      const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+      
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      // Compress with quality setting
+      const quality = mode === 'face-analysis' ? 0.75 : 0.65;
+      const compressedURL = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressedURL);
+    };
+    img.onerror = () => resolve(dataURL); // Fallback to original if compression fails
+    img.src = dataURL;
+  });
+}
+
+
+function parseApiKeys(value) {
+  if (!value) return [];
+  const raw = Array.isArray(value) ? value : String(value);
+  return raw
+    .split(/[\r\n,;]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function getPrimaryApiKeys(settings) {
+  const rawKey = settings.apiKey || settings.openaiKey || '';
+  return parseApiKeys(rawKey);
+}
+
+function getPrimaryApiKey(settings) {
+  return getPrimaryApiKeys(settings)[0] || '';
+}
+
+function getApiProvider(apiKey) {
+  return apiKey.startsWith('gsk_') ? 'groq' : 'openai';
+}
+
+function getApiBaseUrl(provider) {
+  return provider === 'groq'
+    ? 'https://api.groq.com/openai/v1'
+    : 'https://api.openai.com/v1';
+}
+
+function getProviderTokenField(provider) {
+  return provider === 'groq' ? 'max_completion_tokens' : 'max_tokens';
+}
+
+async function runProviderChatCompletion(provider, apiKey, body) {
+  const keys = Array.isArray(apiKey) ? apiKey : parseApiKeys(apiKey);
+  if (!keys.length) {
+    throw new Error(`No ${capitalizeProvider(provider)} API key is configured.`);
+  }
+
+  const errors = [];
+  for (const key of keys) {
+    try {
+      const response = await fetch(getApiBaseUrl(provider) + '/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        let errorMessage = responseText;
+        try {
+          const parsed = JSON.parse(responseText);
+          if (parsed?.error?.message) {
+            errorMessage = parsed.error.message;
+          }
+        } catch (e) {
+          // ignore parse failures
+        }
+
+        if (isApiKeyRetryableError(response.status, errorMessage)) {
+          errors.push(`Key failed (${response.status}): ${errorMessage}`);
+          continue;
+        }
+
+        throw new Error(`${capitalizeProvider(provider)} API failed (${response.status}): ${errorMessage}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      const message = error?.message || String(error);
+      if (isApiKeyRetryableError(0, message)) {
+        errors.push(`Key failed: ${message}`);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error(`All ${capitalizeProvider(provider)} keys failed. ${errors.join(' | ')}`);
+}
+
+function isApiKeyRetryableError(status, message) {
+  if (!message) return false;
+  const normalized = String(message).toLowerCase();
+  return (
+    status === 429 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    /rate limit|quota|insufficient_quota|over limit|too many requests|throttl|exceeded|invalid api key|invalid_request_error|authorization|unauthorized|forbidden|expired/i.test(normalized)
+  );
+}
+
+async function analyzeAuthenticity(frameDataURL, recentTranscript, apiKey, outputLanguage) {
+  const targetLanguage = getOutputLanguageCode({ preferredOutputLanguage: outputLanguage });
+  const langInstruction = targetLanguage
+    ? `Respond in ${LANG_NAMES[targetLanguage] || targetLanguage}.`
+    : '';
+
+  const systemPrompt = `You are a video authenticity analyst. Analyze only the image frame. Do not transcribe audio, do not write captions, and do not summarize spoken words. Decide whether the video frame looks real, AI-generated, or uncertain. Include a verdict emoji and brief visual evidence. ${langInstruction}`;
+  const userPrompt = recentTranscript
+    ? `Optional audio context for consistency only: "${recentTranscript}"
+
+Output format: Verdict: [emoji] [Real / Fake-AI / Uncertain] | Confidence = [0-100]% | Explanation = [visual evidence about faces, texture, lighting, artifacts, motion/frame consistency].`
+    : 'Output format: Verdict: [emoji] [Real / Fake-AI / Uncertain] | Confidence = [0-100]% | Explanation = [visual evidence about faces, texture, lighting, artifacts, motion/frame consistency].';
+
+  const compressedImageURL = await compressImageForVision(frameDataURL, 'authenticity');
+
+  const provider = apiKey ? getApiProvider(apiKey) : null;
+  if (provider) {
+    const tokenField = getProviderTokenField(provider);
+    try {
+      const data = await runProviderChatCompletion(provider, apiKey, {
+        model: TRANSCRIPTION_MODELS[provider].vision,
+        [tokenField]: 180,
+        temperature: 0.2,
+        top_p: 0.8,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt.trim()
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: userPrompt
+              },
+              {
+                type: 'image_url',
+                image_url: { url: compressedImageURL }
+              }
+            ]
+          }
+        ]
+      });
+      return normalizeTranscript(data.choices?.[0]?.message?.content || 'Unable to determine authenticity.');
+    } catch (error) {
+      console.warn('Provider authenticity analysis failed, falling back to local Ollama:', error.message || error);
+    }
+  }
+
+  const response = await fetch(OLLAMA_CHAT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'llava:latest',
+      max_tokens: 180,
+      temperature: 0.2,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt.trim()
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: userPrompt
+            },
+            {
+              type: 'image_url',
+              image_url: { url: compressedImageURL }
+            }
+          ]
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Ollama AI authenticity check failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return normalizeTranscript(data.choices?.[0]?.message?.content || 'Unable to determine authenticity.');
+}
+
+function capitalizeProvider(provider) {
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function toBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const out = String(reader.result || '');
+      const idx = out.indexOf(',');
+      resolve(idx >= 0 ? out.slice(idx + 1) : out);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function getAudioFileExtension(mimeType = '') {
+  if (/ogg/i.test(mimeType)) return 'ogg';
+  if (/mp4|m4a/i.test(mimeType)) return 'm4a';
+  return 'webm';
+}
+
+async function startCallRecording(task = getActiveTask()) {
+  if (!task.active && !task.paused) {
+    addFeedEntry('Start a session before recording call audio.', getElapsedTimestamp(task), 'scene', task);
+    return;
+  }
+
+  if (!task.sourceId) {
+    addFeedEntry('Choose a screen or window source before recording audio.', getElapsedTimestamp(task), 'scene', task);
+    return;
+  }
+
+  if (task.audioRecordingInProgress) return;
+
+  try {
+    task.audioRecordingChunks = [];
+    task.audioRecordingMimeType = getSupportedRecordingMimeType();
+    task.audioRecordingStream = await getDesktopAudioStream(task.sourceId);
+    task.audioRecordingRecorder = task.audioRecordingMimeType
+      ? new MediaRecorder(task.audioRecordingStream, { mimeType: task.audioRecordingMimeType })
+      : new MediaRecorder(task.audioRecordingStream);
+    task.audioRecordingMimeType = task.audioRecordingRecorder.mimeType || task.audioRecordingMimeType || 'audio/webm';
+
+    task.audioRecordingRecorder.addEventListener('dataavailable', (event) => {
+      if (event.data && event.data.size > 0) {
+        task.audioRecordingChunks.push(event.data);
+      }
+    });
+    task.audioRecordingRecorder.addEventListener('stop', () => {
+      task.audioRecordingInProgress = false;
+      task.audioRecordingStream?.getTracks().forEach((track) => track.stop());
+      task.audioRecordingStream = null;
+      task.audioRecordingRecorder = null;
+      addFeedEntry('Audio recording stopped. Click Save Audio to download it.', getElapsedTimestamp(task), 'scene', task);
+      updateAudioButtonState(task);
+    });
+
+    task.audioRecordingInProgress = true;
+    task.audioRecordingRecorder.start(1000);
+    addFeedEntry('Recording system audio for this call...', getElapsedTimestamp(task), 'scene', task);
+  } catch (error) {
+    task.audioRecordingInProgress = false;
+    task.audioRecordingRecorder = null;
+    task.audioRecordingStream?.getTracks().forEach((track) => track.stop());
+    task.audioRecordingStream = null;
+    addFeedEntry(error.message || 'Unable to start audio recording.', getElapsedTimestamp(task), 'scene', task);
+  } finally {
+    updateAudioButtonState(task);
+  }
+}
+
+function stopCallRecording(task = getActiveTask()) {
+  if (!task.audioRecordingRecorder || !task.audioRecordingInProgress) return;
+
+  try {
+    task.audioRecordingRecorder.stop();
+  } catch (error) {
+    console.warn('Audio recorder stop failed:', error);
+    task.audioRecordingStream?.getTracks().forEach((track) => track.stop());
+    task.audioRecordingStream = null;
+    task.audioRecordingRecorder = null;
+  }
+  task.audioRecordingInProgress = false;
+  updateAudioButtonState(task);
+}
+
+async function exportCallRecording(task = getActiveTask()) {
+  if (task.audioRecordingInProgress) {
+    stopCallRecording(task);
+    return;
+  }
+
+  if (!task.audioRecordingChunks?.length) {
+    addFeedEntry('No audio recording is available yet.', getElapsedTimestamp(task), 'scene', task);
+    return;
+  }
+
+  task.audioRecordingExporting = true;
+  updateAudioButtonState(task);
+  try {
+    const mimeType = task.audioRecordingMimeType || 'audio/webm';
+    const blob = new Blob(task.audioRecordingChunks, { type: mimeType });
+    const base64 = await toBase64(blob);
+    const type = getAudioFileExtension(mimeType);
+    const filePath = await window.ss.exportBinary({
+      base64,
+      filename: 'screensense-call-audio',
+      type
+    });
+    addFeedEntry(`Audio recording saved to Downloads: ${filePath}`, getElapsedTimestamp(task), 'scene', task);
+  } catch (error) {
+    console.error('Audio export error:', error);
+    addFeedEntry(error.message || 'Unable to save audio recording.', getElapsedTimestamp(task), 'scene', task);
+  } finally {
+    task.audioRecordingExporting = false;
+    updateAudioButtonState(task);
+  }
+}
+
+function handleAudioRecordingButton() {
+  const task = getActiveTask();
+  if (!task.active && !task.paused && !task.audioRecordingChunks?.length) {
+    startMode('call-recording');
+    return;
+  }
+  if (task.audioRecordingInProgress) {
+    stopCallRecording(task);
+    return;
+  }
+  if (task.audioRecordingChunks?.length) {
+    exportCallRecording(task);
+    return;
+  }
+  startCallRecording(task);
+}
+
+function buildVideoPromptFromSummary(summaryText) {
+  const cleanSummary = normalizeTranscript(
+    summaryText
+      .replace(/[#>*_`-]/g, ' ')
+      .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+  );
+
+  return [
+    'Create a cinematic educational explainer video with clean motion graphics and modern visuals.',
+    'Style: crisp typography, smooth camera movement, dynamic transitions, and professional color.',
+    'Structure: short intro, key concepts, and a clear closing summary.',
+    'Avoid logos, watermarks, and copyrighted characters.',
+    `Narrative basis: ${cleanSummary}`
+  ].join(' ');
+}
+
+async function generateVideoFromSummary(summaryText, apiKey) {
+  const keys = Array.isArray(apiKey) ? apiKey : parseApiKeys(apiKey);
+  if (!keys.length) {
+    throw new Error('No OpenAI key is configured for video generation.');
+  }
+
+  const errors = [];
+  let created = null;
+  let activeKey = null;
+
+  for (const key of keys) {
+    const formData = new FormData();
+    formData.append('model', 'sora-2');
+    formData.append('prompt', buildVideoPromptFromSummary(summaryText));
+    formData.append('seconds', '8');
+    formData.append('size', '1280x720');
+
+    const createResponse = await fetch('https://api.openai.com/v1/videos', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`
+      },
+      body: formData
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      if (isApiKeyRetryableError(createResponse.status, errorText)) {
+        errors.push(`Key failed (${createResponse.status}): ${errorText}`);
+        continue;
+      }
+      throw new Error(`OpenAI video creation failed: ${errorText}`);
+    }
+
+    created = await createResponse.json();
+    activeKey = key;
+    break;
+  }
+
+  if (!created || !activeKey) {
+    throw new Error(`All OpenAI video keys failed. ${errors.join(' | ')}`);
+  }
+  const videoId = created.id || created.video?.id || created.data?.[0]?.id;
+  if (!videoId) {
+    throw new Error('OpenAI video API did not return a video id.');
+  }
+
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const statusResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}`, {
+      headers: {
+        Authorization: `Bearer ${activeKey}`
+      }
+    });
+
+    if (!statusResponse.ok) {
+      const errorText = await statusResponse.text();
+      throw new Error(`OpenAI video status check failed: ${errorText}`);
+    }
+
+    const statusData = await statusResponse.json();
+    if (statusData.status === 'completed') {
+      const contentResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}/content`, {
+        headers: {
+            Authorization: `Bearer ${activeKey}`
+        }
+      });
+      if (!contentResponse.ok) {
+        const errorText = await contentResponse.text();
+        throw new Error(`OpenAI video download failed: ${errorText}`);
+      }
+      return contentResponse.blob();
+    }
+
+    if (statusData.status === 'failed') {
+      throw new Error(statusData.error?.message || 'OpenAI video generation failed.');
+    }
+
+    await sleep(5000);
+  }
+
+  throw new Error('OpenAI video generation timed out. Try again.');
+}
+
+async function doExport() {
+  const task = getActiveTask();
+  const data = getTaskSessionData(task);
+  const settings = await window.ss.getAllSettings();
+
+  if (task.mode === 'summarizer') {
+    const exportBtn = document.getElementById('exportBtn');
+    const originalText = exportBtn.textContent;
+    exportBtn.disabled = true;
+    exportBtn.textContent = 'Exporting...';
+    addFeedEntry('Generating local summary with Ollama...', getElapsedTimestamp(task), 'scene', task);
+
+    try {
+      await captureSummarySnapshot(task, settings);
+      const freshData = getTaskSessionData(task);
+      const content = await buildSessionSummary(freshData, settings, task);
+      const filePath = await window.ss.exportFile({ content, filename: 'screensense-summary', type: 'md' });
+      addFeedEntry(`Summary exported to Downloads: ${filePath}`, getElapsedTimestamp(task), 'scene', task);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert(`Error exporting summary:\n\n${err.message || err}`);
+    } finally {
+      exportBtn.disabled = false;
+      exportBtn.textContent = originalText;
+    }
+    return;
+  }
+
+  let content = '';
+  if (task.mode === 'face-analysis' || task.mode === 'scene-explain') {
+    const entries = task.mode === 'face-analysis' ? (data.faces || []) : data.scenes;
+    const lines = entries.map(e => `[${e.time}] ${e.text}`).join('\n');
+    content = `# ScreenSense Scene Notes\n\n**Date:** ${new Date().toLocaleString()}\n**Mode:** ${task.mode}\n**Duration:** ${formatTimestamp(data.duration)}\n\n---\n\n${lines}`;
+  } else if (task.mode === 'transcript') {
+    const noteEntries = task.feedEntries?.length ? task.feedEntries : data.transcript;
+    const lines = noteEntries.map(e => `[${e.time}] ${e.text}`).join('\n');
+    content = `# ScreenSense Transcript Notes\n\n**Date:** ${new Date().toLocaleString()}\n**Mode:** ${task.mode}\n**Duration:** ${formatTimestamp(data.duration)}\n\n---\n\n${lines}`;
+  } else {
+    const lines = data.transcript.map(e => `[${e.time}] ${e.text}`).join('\n');
+    content = `# ScreenSense Session Notes\n\n**Date:** ${new Date().toLocaleString()}\n**Mode:** ${task.mode}\n**Duration:** ${formatTimestamp(data.duration)}\n\n---\n\n${lines}`;
+  }
+
+  await window.ss.exportFile({ content, filename: 'screensense-notes', type: 'md' });
+}
+
+async function captureSummarySnapshot(task, settings) {
+  if (!task.sourceId) return null;
+
+  const activeRegion = task.selectedRegion && task.selectedRegion.sourceId === task.sourceId ? task.selectedRegion : null;
+  const frameDataUrl = await window.ss.captureFrame(task.sourceId, activeRegion);
+  if (!frameDataUrl) return null;
+
+  const transcriptContext = task.transcriptEntries
+    .slice(-5)
+    .map((entry) => entry.text)
+    .join(' ');
+  const text = await analyzeScene(frameDataUrl, transcriptContext, getPrimaryApiKey(settings), settings.preferredOutputLanguage, 'summarizer');
+  if (!text) return null;
+
+  const entry = {
+    text,
+    time: getElapsedTimestamp(task),
+    taskId: task.id
+  };
+  task.sceneEntries.push(entry);
+  return entry;
+}
+
+function openExportModal(data, settings, task) {
+  const backdrop = document.getElementById('exportModalBackdrop');
+  const list = document.getElementById('exportLangList');
+  list.innerHTML = '';
+  // Render supported languages
+  Object.keys(LANG_NAMES).forEach((code) => {
+    const item = document.createElement('div');
+    item.className = 'export-lang-item';
+    item.textContent = LANG_NAMES[code] || code;
+    item.dataset.lang = code;
+    item.onclick = async () => {
+      try {
+        backdrop.classList.remove('visible');
+        const content = await buildSessionSummary(data, settings, task, code === 'default' ? null : code);
+        const filename = `screensense-summary-${code}`;
+        await window.ss.exportFile({ content, filename, type: 'md' });
+      } catch (err) {
+        console.error('Export error:', err);
+        alert(`Error exporting summary:\n\n${err.message || err}`);
+      }
+    };
+    list.appendChild(item);
+  });
+  backdrop.classList.add('visible');
+}
+
+function closeExportModal(evt) {
+  const backdrop = document.getElementById('exportModalBackdrop');
+  if (!backdrop) return;
+  if (evt && evt.target && evt.target.id !== 'exportModalBackdrop') return;
+  backdrop.classList.remove('visible');
+}
+
+async function doGenerateVideo() {
+  const task = getActiveTask();
+  if (task.videoGenerationInProgress || !hasOpenAIVideoKey) {
+    addFeedEntry('Video generation requires OpenAI sk-... key.', getElapsedTimestamp(), 'scene');
+    return;
+  }
+
+  task.videoGenerationInProgress = true;
+  updateVideoButtonState();
+
+  try {
+    const settings = await window.ss.getAllSettings();
+    const openaiKeys = parseApiKeys(settings.openaiKey || '');
+    if (!openaiKeys.length) {
+      throw new Error('Add your OpenAI API key in Settings to generate AI videos.');
+    }
+    const validOpenAIKeys = openaiKeys.filter((key) => key.startsWith('sk-'));
+    if (!validOpenAIKeys.length) {
+      throw new Error('Video generation requires an OpenAI key (sk-...), not a Groq key.');
+    }
+
+    const data = getTaskSessionData(task);
+    addFeedEntry('Preparing summary for AI video...', getElapsedTimestamp(), 'scene');
+    const summaryDoc = await buildSessionSummary(data, settings, task);
+    const summaryText = summaryDoc.split('\n\n---\n\n').pop() || summaryDoc;
+
+    addFeedEntry('Submitting video generation request...', getElapsedTimestamp(), 'scene');
+    const videoBlob = await generateVideoFromSummary(summaryText, validOpenAIKeys);
+    const base64Video = await toBase64(videoBlob);
+
+    await window.ss.exportBinary({
+      base64: base64Video,
+      filename: 'screensense-summary-video',
+      type: 'mp4'
+    });
+
+    addFeedEntry('AI video generated and saved to Downloads.', getElapsedTimestamp(), 'scene');
+  } catch (error) {
+    console.error(error);
+    addFeedEntry(error.message || 'AI video generation failed.', getElapsedTimestamp(), 'scene');
+  } finally {
+    task.videoGenerationInProgress = false;
+    updateVideoButtonState();
+  }
+}
+
+function getTaskSessionData(task = getActiveTask()) {
+  return {
+    transcript: task.transcriptEntries,
+    scenes: task.sceneEntries,
+    faces: task.faceEntries,
+    startTime: task.startTime,
+    duration: getTaskDuration(task),
+    mode: task.mode
+  };
+}
+
+function isUsableSummaryEntry(entry) {
+  const text = String(entry?.text || '').trim();
+  if (!text) return false;
+  return !/(failed|not running|api key|authorization|unauthorized|network|timed out|starting or not available|current screen captured|generating local summary|collecting live captions)/i.test(text);
+}
+
+async function buildSessionSummary(data, settings, task = getActiveTask(), overrideTargetLanguage = null) {
+  const apiKey = getPrimaryApiKey(settings);
+  const provider = apiKey ? getApiProvider(apiKey) : null;
+  const providerModel = provider ? TRANSCRIPTION_MODELS[provider].summary : null;
+  const providerName = provider ? capitalizeProvider(provider) : null;
+  const tokenField = provider ? getProviderTokenField(provider) : null;
+  const transcriptEntries = (data.transcript || []).filter(isUsableSummaryEntry);
+  const sceneEntries = (data.scenes || []).filter(isUsableSummaryEntry);
+  const faceEntries = (data.faces || []).filter(isUsableSummaryEntry);
+  const transcriptText = transcriptEntries.length
+    ? transcriptEntries.map((entry) => `[${entry.time}] ${entry.text}`).join('\n')
+    : 'No audio transcript available.';
+  const sceneText = sceneEntries.length
+    ? sceneEntries.map((entry) => `[${entry.time}] ${entry.text}`).join('\n')
+    : 'No scene descriptions captured.';
+  const faceText = faceEntries.length
+    ? faceEntries.map((entry) => `[${entry.time}] ${entry.text}`).join('\n')
+    : null;
+
+  const generatedBy = provider && providerModel
+    ? `${providerName} (${providerModel})`
+    : 'Ollama (llama3.2) — 100% Local';
+
+  const header = `# ScreenSense AI — Session Summary
+
+**Date:** ${new Date().toLocaleString()}
+**Duration:** ${formatTimestamp(data.duration)}
+**Mode:** ${task.mode}
+**Generated by:** ${generatedBy}
+
+---
+
+`;
+
+  if (!transcriptEntries.length && !sceneEntries.length && !faceEntries.length) {
+    return header + `## 📋 Executive Overview
+ScreenSense did not capture enough usable audio transcript or visual scene notes to summarize this video accurately. To avoid inventing content, this export is limited to a capture-quality report instead of a fabricated summary. Start Summarizer while the video is playing, keep it running for at least 20-30 seconds, and then export again after a few scene notes have been captured.
+
+## 🧠 Key Concepts Explained
+### Capture Evidence
+No reliable video subject, spoken topic, slide content, or visible activity was available in the captured data. A meaningful summary requires at least one usable visual description from Llava or live caption text from Whisper.
+
+## 🕐 Session Timeline
+- **[00:00]** — No usable captured event was available for timeline generation.
+
+## 💡 Important Points & Takeaways
+- The exported file was created, but ScreenSense avoided generating a fictional summary because the capture evidence was empty or unusable.
+- Play the video during Summarizer mode and wait for real scene notes or captions before exporting.
+
+## 📌 Action Items / Follow-ups
+Run Summarizer again while the video is actively playing, wait at least 20-30 seconds, and click Export after capture has collected real content.
+`;
+  }
+
+  const systemPrompt = `You are an expert video summarizer and professional note-taker. Create a complete Markdown document from the supplied captured video materials. The output must include ALL of the following sections, each thoroughly written with real content and not placeholder text:
+
+Critical accuracy rules:
+- Use only the supplied AUDIO TRANSCRIPT, SCENE EXPLAINER NOTES, and FACE ANALYSIS NOTES as evidence.
+- Do not invent topics, names, lessons, research themes, actions, or conclusions that are not directly supported by the captured notes.
+- If evidence is limited or unclear, say that the captured evidence is limited and summarize only what is actually visible or stated.
+- Treat scene notes as observations from sampled video frames, not as a complete transcript of the whole video.
+- For the timeline, use only timestamps that appear in the provided notes.
+
+## 📋 Executive Overview
+Write 3-5 descriptive sentences about what the session covered, the subject, context, and purpose.
+
+## 🧠 Key Concepts Explained
+For every major topic, event, screen, demonstration, or activity captured, create a ### sub-heading and write 3-6 sentences explaining it fully to someone who was not present. Use bullet points inside for steps/examples when useful.
+
+## 🕐 Session Timeline
+Create a chronological breakdown. Each entry must be formatted exactly as:
+- **[HH:MM]** — one clear sentence of what happened at that time.
+
+## 💡 Important Points & Takeaways
+Write a bulleted list of the most important facts, conclusions, or insights. Each bullet must be a complete descriptive sentence.
+
+## 📌 Action Items / Follow-ups
+List any tasks, next steps, or questions raised. If none are evident, write "No specific action items identified."
+${faceText !== null ? `
+## 😊 Audience / Presenter Analysis
+Summarize visible facial expressions and emotional tone from the face analysis data.
+` : ''}
+Be descriptive and thorough. Avoid one-liners.
+Use proper Markdown (##, ###, -, **bold**).
+Write in clear professional English.
+Do not add any preamble like "Here is your summary".
+Output only the Markdown document, nothing else.`;
+
+  const userContent = `Session Duration: ${formatTimestamp(data.duration)}
+
+Captured Evidence Counts:
+- Audio transcript entries: ${transcriptEntries.length}
+- Visual scene entries: ${sceneEntries.length}
+- Face analysis entries: ${faceEntries.length}
+
+AUDIO TRANSCRIPT (Live Captions)
+${transcriptText}
+
+SCENE EXPLAINER NOTES (Visual Descriptions)
+${sceneText}
+${faceText ? `
+FACE ANALYSIS NOTES
+${faceText}
+` : ''}
+Generate the full professional summary now.`;
+
+  if (provider && providerModel) {
+    try {
+      const requestBody = {
+        model: providerModel,
+        [tokenField]: 3000,
+        stream: false,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
+        ]
+      };
+      const providerResult = await runProviderChatCompletion(provider, apiKey, requestBody);
+      const providerSummaryText = (providerResult.choices?.[0]?.message?.content || '').trim();
+      if (!providerSummaryText) {
+        throw new Error(`${providerName} returned an empty summary.`);
+      }
+      return header + providerSummaryText + "\n";
+    } catch (error) {
+      console.warn('Provider summarizer failed, falling back to local Ollama:', error.message || error);
+    }
+  }
+
+  let response;
+  try {
+    response = await fetch(OLLAMA_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: OLLAMA_SUMMARY_MODEL,
+        max_tokens: 3000,
+        stream: false,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
+        ]
+      })
+    });
+  } catch (error) {
+    throw new Error(`Ollama summarizer failed (network): ${error.message}. Make sure Ollama is running: open a terminal and run 'ollama serve'.`);
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Ollama summarizer failed (${response.status}): ${errorText}. Make sure Ollama is running: open a terminal and run 'ollama serve'.`);
+  }
+
+  const result = await response.json();
+  const summaryText = (result.choices?.[0]?.message?.content || '').trim();
+  if (!summaryText) {
+    throw new Error('Ollama returned an empty summary. Make sure the model is loaded and has enough context.');
+  }
+
+  return header + summaryText + "\n";
+}
+
+// IPC events
+window.ss.on('transcript:new', (entry) => {
+  const task = tasks.get(entry.taskId) || getActiveTask();
+  task.transcriptEntries.push(entry);
+  if (task.mode === 'live-captions') {
+    addFeedEntry(entry.text, entry.time, 'transcript', task);
+  } else if (task.mode === 'transcript') {
+    task.noteGenerationChain = (task.noteGenerationChain || Promise.resolve())
+      .then(async () => {
+        if (task.mode !== 'transcript') return;
+        const settings = await window.ss.getAllSettings();
+        const note = await generateTranscriptNote(entry, task, settings);
+        if (note && task.mode === 'transcript') {
+          addFeedEntry(note, entry.time, 'scene', task);
+        }
+      })
+      .catch((error) => {
+        console.error('Transcript note generation error:', error);
+        const fallback = buildLocalTranscriptNote(entry.text || '');
+        if (fallback && task.mode === 'transcript') {
+          addFeedEntry(fallback, entry.time, 'scene', task);
+        }
+      });
+  }
+  if (task.id === activeTaskId && document.getElementById('referenceInput').value.trim()) {
+    generateSimilarityScore();
+  }
+});
+
+window.ss.on('scene:new', (entry) => {
+  const task = tasks.get(entry.taskId) || getActiveTask();
+  task.sceneEntries.push(entry);
+  if (task.mode !== 'summarizer') {
+    addFeedEntry(entry.text, entry.time, 'scene', task);
+  }
+  if (task.id === activeTaskId && document.getElementById('referenceInput').value.trim()) {
+    generateSimilarityScore();
+  }
+});
+
+window.ss.on('face:new', (entry) => {
+  const task = tasks.get(entry.taskId) || getActiveTask();
+  task.faceEntries.push(entry);
+  if (task.mode === 'face-analysis') {
+    addFeedEntry(entry.text, entry.time, 'scene', task);
+  }
+});
+
+window.ss.on('task:detached-init', (snapshot) => {
+  if (snapshot) hydrateDetachedTask(snapshot);
+});
+
+window.ss.on('settings:updated', (key, value) => {
+  if (key === 'preferredOutputLanguage') {
+    document.getElementById('langLabel').textContent = LANG_NAMES[value] || value;
+  }
+  if (key === 'openaiKey') {
+    updateVideoCapability({ openaiKey: value });
+    updateVideoButtonState();
+  }
+});
+
+window.ss.on('window:maximized-state', (isMaximized) => {
+  document.querySelector('.panel')?.classList.toggle('maximized', isMaximized);
+  const btn = document.getElementById('maximizeBtn');
+  if (!btn) return;
+  btn.textContent = isMaximized ? '❐' : '□';
+  btn.title = isMaximized ? 'Restore' : 'Maximize';
+});
+
+window.addEventListener('beforeunload', () => {
+  tasks.forEach((task) => teardownProcessing(task));
+});
+
+init();
+</script>
+</body>
+</html>

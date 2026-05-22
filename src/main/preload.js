@@ -1,0 +1,74 @@
+// Preload — exposes safe IPC API to all renderer windows
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('ss', {
+  // Orb
+  orbClick: () => ipcRenderer.send('orb:click'),
+  orbDrag: (payloadOrDx, dy) => {
+    const payload = typeof payloadOrDx === 'object'
+      ? payloadOrDx
+      : { dx: payloadOrDx, dy };
+    ipcRenderer.send('orb:drag', payload);
+  },
+  orbDragEnd: () => ipcRenderer.send('orb:drag-end'),
+
+  // Mode control
+  startMode: (mode, taskId = 'default') => ipcRenderer.send('mode:start', { mode, taskId }),
+  stopMode: (taskId = 'default') => ipcRenderer.send('mode:stop', { taskId }),
+
+  // Screen capture
+  getSources: () => ipcRenderer.invoke('capture:getSources'),
+  captureFrame: (sourceId, region) => ipcRenderer.invoke('capture:frame', { sourceId, region }),
+  pickRegion: (sourceId) => ipcRenderer.invoke('region:pick', sourceId),
+
+  // Settings
+  getSetting: (key) => ipcRenderer.invoke('settings:get', key),
+  setSetting: (key, value) => ipcRenderer.invoke('settings:set', key, value),
+  getAllSettings: () => ipcRenderer.invoke('settings:getAll'),
+  openSettings: () => ipcRenderer.send('settings:open'),
+  openFeedback: () => ipcRenderer.send('feedback:open'),
+  ensureLocalWhisper: () => ipcRenderer.invoke('local-whisper:ensure'),
+
+  // Transcript / Scene data
+  appendTranscript: (entry) => ipcRenderer.send('transcript:append', entry),
+  appendScene: (entry) => ipcRenderer.send('scene:append', entry),
+  appendFace: (entry) => ipcRenderer.send('face:append', entry),
+
+  // Session
+  getSessionData: () => ipcRenderer.invoke('session:getData'),
+  setOverlayClickThrough: (value) => ipcRenderer.send('overlay:setClickThrough', Boolean(value)),
+  detachTaskWindow: (task) => ipcRenderer.send('task:detach-window', task),
+  panelTabDragStart: () => ipcRenderer.send('panel:tab-drag-start'),
+  panelTabDragEnd: () => ipcRenderer.send('panel:tab-drag-end'),
+
+  // Export
+  exportFile: (opts) => ipcRenderer.invoke('export:file', opts),
+  exportBinary: (opts) => ipcRenderer.invoke('export:binary', opts),
+
+  // Feedback
+  feedbackSubmit: (data) => ipcRenderer.invoke('feedback:submit', data),
+  feedbackGetHistory: () => ipcRenderer.invoke('feedback:getHistory'),
+  feedbackClearHistory: () => ipcRenderer.invoke('feedback:clearHistory'),
+  feedbackExport: (format) => ipcRenderer.invoke('feedback:export', format),
+  feedbackSendToServer: (payload) => ipcRenderer.invoke('feedback:sendToServer', payload),
+  feedbackDelete: (id) => ipcRenderer.invoke('feedback:delete', id),
+  feedbackUpdate: (id, patch) => ipcRenderer.invoke('feedback:update', id, patch),
+
+  // Window controls
+  closeWindow: () => ipcRenderer.send('window:close'),
+  minimizeWindow: () => ipcRenderer.send('window:minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.send('window:toggle-maximize'),
+
+  // Event listeners
+  on: (channel, cb) => {
+    const allowed = [
+      'session:started', 'session:stopped', 'session:active', 'session:finalizing',
+      'mode:active', 'transcript:new', 'scene:new', 'face:new', 'settings:updated',
+      'window:maximized-state', 'task:detached-init', 'feedback:submitted'
+    ];
+    if (allowed.includes(channel)) {
+      ipcRenderer.on(channel, (_, ...args) => cb(...args));
+    }
+  },
+  off: (channel, cb) => ipcRenderer.removeListener(channel, cb)
+});

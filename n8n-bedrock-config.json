@@ -1,0 +1,408 @@
+{
+  "n8nCredentials": {
+    "awsBedrock": {
+      "name": "AWS Bedrock",
+      "type": "httpBasicAuth",
+      "data": {
+        "url": "https://bedrock-runtime.us-east-1.amazonaws.com",
+        "authMethod": "awsSigv4",
+        "awsConfig": {
+          "region": "us-east-1",
+          "accessKeyId": "YOUR_AWS_ACCESS_KEY_ID",
+          "secretAccessKey": "YOUR_AWS_SECRET_ACCESS_KEY",
+          "sessionToken": ""
+        }
+      }
+    },
+    "screenSenseKeyRotation": {
+      "name": "Screen Sense Key Rotation",
+      "type": "httpBasicAuth",
+      "data": {
+        "url": "http://127.0.0.1:8765",
+        "headers": {
+          "x-rotation-secret": "YOUR_KEY_ROTATION_SECRET",
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    "openaiProvider": {
+      "name": "OpenAI Provider Keys",
+      "type": "genericCredentialType",
+      "data": {
+        "apiKeys": [
+          "sk-YOUR_FIRST_KEY",
+          "sk-YOUR_SECOND_KEY",
+          "sk-YOUR_BACKUP_KEY"
+        ]
+      }
+    },
+    "groqProvider": {
+      "name": "Groq Provider Keys",
+      "type": "genericCredentialType",
+      "data": {
+        "apiKeys": [
+          "gsk_YOUR_FIRST_KEY",
+          "gsk_YOUR_SECOND_KEY",
+          "gsk_YOUR_BACKUP_KEY"
+        ]
+      }
+    }
+  },
+  "keyRotationPolicy": {
+    "enabled": true,
+    "rotationTrigger": "onRateLimitError",
+    "retryableErrorCodes": [429, 503, 504],
+    "maxRetries": 3,
+    "backoffMultiplier": 2,
+    "rotationEndpoint": "http://127.0.0.1:8765/rotate-keys",
+    "rotationSecret": "YOUR_KEY_ROTATION_SECRET",
+    "logAudit": true,
+    "auditLogPath": "./logs/key-rotation-audit.log"
+  },
+  "bedrockModels": {
+    "models": [
+      {
+        "id": "anthropic.claude-3-sonnet-20240229-v1:0",
+        "name": "Claude 3 Sonnet",
+        "maxTokens": 200000,
+        "costPerMTok": 0.003,
+        "costPerOutputMTok": 0.015
+      },
+      {
+        "id": "anthropic.claude-3-opus-20240229-v1:0",
+        "name": "Claude 3 Opus",
+        "maxTokens": 200000,
+        "costPerMTok": 0.015,
+        "costPerOutputMTok": 0.075
+      },
+      {
+        "id": "anthropic.claude-3-haiku-20240307-v1:0",
+        "name": "Claude 3 Haiku",
+        "maxTokens": 200000,
+        "costPerMTok": 0.00080,
+        "costPerOutputMTok": 0.0024
+      }
+    ]
+  },
+  "n8nWorkflow": {
+    "name": "Screen Sense - AWS Bedrock Key Rotation Automation",
+    "description": "Automated key rotation and failover using AWS Bedrock with n8n",
+    "version": 1,
+    "active": true,
+    "nodes": [
+      {
+        "name": "Webhook Trigger",
+        "type": "webhook",
+        "typeVersion": 1,
+        "position": [250, 300],
+        "parameters": {
+          "path": "screen-sense-rotation",
+          "method": "POST",
+          "authentication": "basicAuth"
+        },
+        "credentials": {
+          "httpBasicAuth": "screenSenseKeyRotation"
+        }
+      },
+      {
+        "name": "Check Rate Limit Error",
+        "type": "if",
+        "typeVersion": 1,
+        "position": [450, 300],
+        "parameters": {
+          "conditions": {
+            "number": [
+              {
+                "comparator": "equals",
+                "value1": "{{ $json.statusCode }}",
+                "value2": 429
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Query Key Vault",
+        "type": "http",
+        "typeVersion": 4,
+        "position": [650, 200],
+        "parameters": {
+          "url": "{{ $env.KEY_VAULT_ENDPOINT }}",
+          "method": "GET",
+          "authentication": "none",
+          "headers": {
+            "Authorization": "Bearer {{ $env.KEY_VAULT_TOKEN }}"
+          }
+        }
+      },
+      {
+        "name": "Rotate to Next Key",
+        "type": "http",
+        "typeVersion": 4,
+        "position": [850, 200],
+        "parameters": {
+          "url": "http://127.0.0.1:8765/rotate-keys",
+          "method": "POST",
+          "authentication": "generic",
+          "headers": {
+            "x-rotation-secret": "{{ $env.KEY_ROTATION_SECRET }}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "openaiKey": "{{ $json.nextOpenAIKey }}",
+            "apiKey": "{{ $json.nextGroqKey }}"
+          }
+        }
+      },
+      {
+        "name": "Log Rotation Event",
+        "type": "http",
+        "typeVersion": 4,
+        "position": [1050, 200],
+        "parameters": {
+          "url": "http://127.0.0.1:8765/audit-log",
+          "method": "POST",
+          "authentication": "none",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "event": "key_rotated",
+            "timestamp": "{{ $now.toIso8601() }}",
+            "previousKey": "{{ $json.currentKey }}",
+            "newKey": "{{ $json.nextOpenAIKey }}",
+            "reason": "rate_limit_exceeded"
+          }
+        }
+      },
+      {
+        "name": "Invoke Bedrock Model",
+        "type": "http",
+        "typeVersion": 4,
+        "position": [1250, 200],
+        "parameters": {
+          "url": "https://bedrock-runtime.us-east-1.amazonaws.com/model/anthropic.claude-3-sonnet-20240229-v1:0/invoke",
+          "method": "POST",
+          "authentication": "awsSigv4",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "prompt": "{{ $json.prompt }}",
+            "max_tokens": 2000,
+            "temperature": 0.7
+          }
+        }
+      },
+      {
+        "name": "Return Response",
+        "type": "respond",
+        "typeVersion": 1,
+        "position": [1450, 200],
+        "parameters": {
+          "responseCode": 200,
+          "responseData": {
+            "success": true,
+            "result": "{{ $json.body }}",
+            "keyRotated": "{{ $node['Rotate to Next Key'].json.success }}"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Webhook Trigger": {
+        "main": [
+          [
+            {
+              "node": "Check Rate Limit Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Rate Limit Error": {
+        "main": [
+          [
+            {
+              "node": "Query Key Vault",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Invoke Bedrock Model",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Query Key Vault": {
+        "main": [
+          [
+            {
+              "node": "Rotate to Next Key",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Rotate to Next Key": {
+        "main": [
+          [
+            {
+              "node": "Log Rotation Event",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Rotation Event": {
+        "main": [
+          [
+            {
+              "node": "Invoke Bedrock Model",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Invoke Bedrock Model": {
+        "main": [
+          [
+            {
+              "node": "Return Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    }
+  },
+  "environmentVariables": {
+    "AWS_REGION": "us-east-1",
+    "AWS_ACCESS_KEY_ID": "YOUR_AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY": "YOUR_AWS_SECRET_ACCESS_KEY",
+    "KEY_ROTATION_SECRET": "YOUR_KEY_ROTATION_SECRET",
+    "KEY_VAULT_ENDPOINT": "https://your-key-vault.example.com/api/keys",
+    "KEY_VAULT_TOKEN": "YOUR_KEY_VAULT_TOKEN",
+    "N8N_WEBHOOK_URL": "http://your-n8n-instance.com/webhook/screen-sense-rotation",
+    "SCREEN_SENSE_APP_URL": "http://127.0.0.1:8765",
+    "BEDROCK_RUNTIME_ENDPOINT": "https://bedrock-runtime.us-east-1.amazonaws.com"
+  },
+  "apiKeyPool": {
+    "openai": {
+      "active": 0,
+      "keys": [
+        {
+          "id": "sk_001",
+          "key": "sk-YOUR_FIRST_KEY",
+          "status": "active",
+          "rotatedAt": "2026-05-22T00:00:00Z",
+          "quotaLimit": 1000000,
+          "quotaUsed": 0,
+          "lastError": null,
+          "consecutiveErrors": 0
+        },
+        {
+          "id": "sk_002",
+          "key": "sk-YOUR_SECOND_KEY",
+          "status": "standby",
+          "rotatedAt": null,
+          "quotaLimit": 1000000,
+          "quotaUsed": 0,
+          "lastError": null,
+          "consecutiveErrors": 0
+        }
+      ]
+    },
+    "groq": {
+      "active": 0,
+      "keys": [
+        {
+          "id": "gsk_001",
+          "key": "gsk_YOUR_FIRST_KEY",
+          "status": "active",
+          "rotatedAt": "2026-05-22T00:00:00Z",
+          "quotaLimit": 500000,
+          "quotaUsed": 0,
+          "lastError": null,
+          "consecutiveErrors": 0
+        }
+      ]
+    },
+    "bedrock": {
+      "active": 0,
+      "keys": [
+        {
+          "id": "bedrock_001",
+          "region": "us-east-1",
+          "accessKeyId": "YOUR_AWS_ACCESS_KEY_ID",
+          "status": "active",
+          "rotatedAt": "2026-05-22T00:00:00Z",
+          "quotaLimit": 50000,
+          "quotaUsed": 0,
+          "lastError": null,
+          "consecutiveErrors": 0
+        }
+      ]
+    }
+  },
+  "rotationRules": [
+    {
+      "provider": "openai",
+      "trigger": "onErrorCode",
+      "errorCode": 429,
+      "action": "rotateThenRetry",
+      "maxRetries": 3,
+      "backoffMs": 5000
+    },
+    {
+      "provider": "openai",
+      "trigger": "onQuotaUsagePercent",
+      "threshold": 80,
+      "action": "proactiveRotate",
+      "warnAt": 70
+    },
+    {
+      "provider": "groq",
+      "trigger": "onErrorCode",
+      "errorCode": 429,
+      "action": "rotateThenRetry",
+      "maxRetries": 2,
+      "backoffMs": 3000
+    },
+    {
+      "provider": "bedrock",
+      "trigger": "onSchedule",
+      "schedule": "0 0 * * 0",
+      "action": "rotateWeekly",
+      "notifySlack": true
+    }
+  ],
+  "auditConfig": {
+    "enabled": true,
+    "logDestinations": [
+      "file",
+      "cloudwatch",
+      "datadog"
+    ],
+    "retention": "90days",
+    "fields": [
+      "timestamp",
+      "event",
+      "provider",
+      "previousKey",
+      "newKey",
+      "reason",
+      "statusCode",
+      "errorMessage"
+    ]
+  }
+}

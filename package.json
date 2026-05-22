@@ -1,0 +1,17 @@
+{
+  "name": "screensense-ai",
+  "version": "1.0.0",
+  "description": "AI-powered screen overlay for captions and scene analysis",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "whisper": "py -3.13 local_whisper_server.py",
+    "build": "electron-builder"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "electron": "^41.3.0"
+  }
+}
