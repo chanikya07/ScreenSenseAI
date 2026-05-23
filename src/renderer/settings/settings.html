@@ -393,7 +393,11 @@
       <label>Scene Capture Interval</label>
       <div class="hint">How often to analyze a new frame (lower = more frequent, higher API usage)</div>
       <select id="sceneInterval">
-        <option value="10000" selected>Every 10 seconds (local LLaVA)</option>
+        <option value="5000">Every 5 seconds</option>
+        <option value="10000" selected>Every 10 seconds (recommended)</option>
+        <option value="15000">Every 15 seconds</option>
+        <option value="30000">Every 30 seconds (low API usage)</option>
+        <option value="60000">Every 60 seconds (minimal API usage)</option>
       </select>
     </div>
   </div>

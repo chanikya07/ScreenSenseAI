@@ -1698,69 +1698,6 @@ function setPlaybackButtonState(task = getActiveTask()) {
   btn.title = task.paused ? 'Resume session' : 'Pause session';
 }
 
-function startMode(mode) {
-  const sourceId = document.getElementById('sourceSelect').value;
-  if (!sourceId) {
-    addFeedEntry('Choose a screen or window source before starting.', '00:00', 'scene');
-    return;
-  }
-
-  currentMode = mode;
-  activeSourceId = sourceId;
-  sessionActive = true;
-  sessionPaused = false;
-  sessionStartTime = Date.now();
-  pauseStartedAt = null;
-  feedEntries = [];
-  transcriptEntries = [];
-  sceneEntries = [];
-  faceEntries = [];
-  transcriptionChain = Promise.resolve();
-  setPlaybackButtonState();
-  window.ss.startMode(mode, task.id);
-
-  const labels = {
-    'live-captions': '💬 Live Captions',
-    'scene-explain': '🎬 Scene Explainer',
-    'transcript': '📝 Transcript Notes',
-    'summarizer': '✨ Summarizer',
-    'face-analysis': '😊 Face Analyzer',
-    'ai-authenticity': '🔍 AI Fake Detector'
-  };
-  document.getElementById('activeModeLabel').textContent = labels[mode] || mode;
-
-  document.getElementById('sourceSection').style.display = 'none';
-  document.getElementById('referenceSection').style.display = 'none';
-  document.getElementById('modesSection').style.display = 'none';
-  document.getElementById('activeView').classList.add('visible');
-
-  if (mode === 'summarizer') {
-    addFeedEntry('Collecting live captions and scene notes in the background. Use Export to generate the combined summary.', '00:00', 'scene');
-  }
-  if (mode === 'ai-authenticity') {
-    addFeedEntry('Analyzing video frames for AI-generated content and deepfake signals.', '00:00', 'scene');
-  }
-
-  startSessionTimer();
-
-  if (mode === 'live-captions' || mode === 'transcript' || mode === 'scene-explain' || mode === 'summarizer' || mode === 'face-analysis' || mode === 'ai-authenticity') {
-    document.getElementById('exportBtn').classList.add('visible');
-  }
-  if (mode === 'summarizer') {
-    document.getElementById('videoBtn').classList.add('visible');
-    updateVideoButtonState();
-    if (!hasOpenAIVideoKey) {
-      addFeedEntry('AI Video requires OpenAI sk-... key. Your gsk_ key will still work for summary and transcript.', '00:00', 'scene');
-    }
-  }
-
-  startProcessing(mode, sourceId).catch((error) => {
-    console.error(error);
-    addFeedEntry(error.message || 'Unable to start live transcription.', '00:00', 'scene');
-    stopSession();
-  });
-}
-
 function pauseSession() {
   if (!sessionActive || sessionPaused) return;
 

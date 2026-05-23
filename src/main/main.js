@@ -50,7 +50,7 @@ const store = new Store({
   }
 });
 const savedSceneInterval = Number(store.get('sceneInterval'));
-if (!Number.isFinite(savedSceneInterval) || savedSceneInterval < 10000) {
+if (!Number.isFinite(savedSceneInterval) || savedSceneInterval < 3000) {
   store.set('sceneInterval', 10000);
 }
 if (store.get('preferredLanguage') === 'en') {

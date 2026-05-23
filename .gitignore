@@ -1,4 +1,8 @@
 .env
 .env.*
+.env.local
 .docx_extract/
 node_modules/
+dist/
+out/
+*.log
