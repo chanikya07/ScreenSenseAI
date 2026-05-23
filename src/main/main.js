@@ -368,6 +368,15 @@ async function ensureLocalWhisperProcess() {
 
   const appRoot = path.join(__dirname, '../..');
   const serverPath = path.join(appRoot, 'local_whisper_server.py');
+  if (!fs.existsSync(serverPath)) {
+    localWhisperLastError = 'Local Whisper server file was not found. Reinstall ScreenSense or run local_whisper_server.py from the app folder.';
+    return {
+      ok: false,
+      status: 'missing-server',
+      error: localWhisperLastError
+    };
+  }
+
   localWhisperLastError = 'Starting local Whisper...';
   localWhisperProcess = spawn(
     python.command,
@@ -384,6 +393,12 @@ async function ensureLocalWhisperProcess() {
   });
   localWhisperProcess.stderr.on('data', (chunk) => {
     localWhisperLastError = String(chunk).trim() || localWhisperLastError;
+  });
+  localWhisperProcess.on('error', (error) => {
+    localWhisperLastError = error.code === 'ENOENT'
+      ? `Unable to start Python command "${python.command}". Install Python and make sure it is available on PATH, then restart ScreenSense.`
+      : (error.message || String(error));
+    localWhisperProcess = null;
   });
   localWhisperProcess.on('exit', (code) => {
     if (code !== 0 && !localWhisperLastError) {

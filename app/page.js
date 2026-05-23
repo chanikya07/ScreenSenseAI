@@ -159,6 +159,28 @@ export default function Home() {
       <h1 style={{ fontSize: 24, marginBottom: 4 }}>ScreenSense AI</h1>
       <p style={{ color: '#666', marginBottom: 24 }}>AI-powered screen captions and analysis</p>
 
+      {/* Download desktop app banner */}
+      <div style={{ background: '#f0f4ff', border: '1px solid #c7d2fe',
+        borderRadius: 8, padding: 16, marginBottom: 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <p style={{ fontWeight: 600, margin: 0, marginBottom: 4 }}>
+            Want the full desktop experience?
+          </p>
+          <p style={{ fontSize: 13, color: '#666', margin: 0 }}>
+            Download the Electron app for system audio capture, always-on-top overlay, and offline mode.
+          </p>
+        </div>
+        <a href="https://github.com/chanikya07/ScreenSenseAI/releases"
+          target="_blank" rel="noopener noreferrer"
+          style={{ padding: '9px 20px', background: '#24292f', color: '#fff',
+            borderRadius: 8, textDecoration: 'none', fontWeight: 600,
+            fontSize: 13, whiteSpace: 'nowrap' }}>
+          ⬇ Download Desktop App
+        </a>
+      </div>
+
       {/* Mode selector */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {['captions', 'scene', 'summariser'].map(m => (
