@@ -2,7 +2,7 @@
   "name": "screensense-ai",
   "version": "1.0.0",
   "description": "AI-powered screen overlay for captions and scene analysis",
-  "author": "ScreenSense AI",
+  "author": "chanikya07 <bellamchanikya@gmail.com>",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -58,6 +58,7 @@
       "target": ["AppImage", "deb"],
       "icon": "assets/icon.png",
       "category": "Utility",
+      "maintainer": "chanikya07 <bellamchanikya@gmail.com>",
       "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
     },
     "nsis": {
