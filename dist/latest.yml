@@ -1,0 +1,8 @@
+version: 1.0.0
+files:
+  - url: ScreenSense-AI-Setup-1.0.0.exe
+    sha512: zPvZK51Mu2/y2gjyqHFyP4Z27C04k5G3R9wSilKtVZWG8tzfvKPcVnRuS7um9PHAPMFhtO5AEyOVifJwVuV4cQ==
+    size: 100032067
+path: ScreenSense-AI-Setup-1.0.0.exe
+sha512: zPvZK51Mu2/y2gjyqHFyP4Z27C04k5G3R9wSilKtVZWG8tzfvKPcVnRuS7um9PHAPMFhtO5AEyOVifJwVuV4cQ==
+releaseDate: '2026-05-26T06:17:23.119Z'

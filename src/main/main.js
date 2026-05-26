@@ -8,7 +8,38 @@ const fs = require('fs');
 const http = require('http');
 const { execFile, spawn } = require('child_process');
 
-const appRoot = path.join(__dirname, '../..');
+function getAppRoot() {
+  return app.isPackaged ? process.resourcesPath : path.join(__dirname, '../..');
+}
+
+const appRoot = getAppRoot();
+
+function getResourcePath(...segments) {
+  return path.join(appRoot, ...segments);
+}
+
+function writeStartupLog(message, error = null) {
+  try {
+    const logDir = path.join(app.getPath('userData'), 'logs');
+    fs.mkdirSync(logDir, { recursive: true });
+    const detail = error ? ` ${error.stack || error.message || String(error)}` : '';
+    fs.appendFileSync(
+      path.join(logDir, 'startup.log'),
+      `[${new Date().toISOString()}] ${message}${detail}\n`,
+      'utf8'
+    );
+  } catch (_) {
+    // Logging must never be the reason the app cannot start.
+  }
+}
+
+process.on('uncaughtException', (error) => {
+  writeStartupLog('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  writeStartupLog('Unhandled rejection:', reason);
+});
 
 function loadEnvLocal(filePath) {
   try {
@@ -32,7 +63,7 @@ function loadEnvLocal(filePath) {
   }
 }
 
-loadEnvLocal(path.join(appRoot, '.env.local'));
+loadEnvLocal(getResourcePath('.env.local'));
 
 // ── Persistent Settings ────────────────────────────────────────────────
 const store = new Store({
@@ -218,6 +249,7 @@ function isScreenSenseSource(source) {
 
 // ── App Init ───────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  writeStartupLog(`App starting. packaged=${app.isPackaged} root=${appRoot}`);
   createTray();
   createOrbWindow();
   createOverlayWindow();
@@ -309,8 +341,13 @@ function startKeyRotationServer() {
     });
   });
 
-  server.listen(rotationPort, '127.0.0.1');
-  console.log(`Key rotation server listening on http://127.0.0.1:${rotationPort}/rotate-keys`);
+  server.on('error', (error) => {
+    console.warn('Key rotation server failed:', error.message || error);
+    writeStartupLog('Key rotation server failed:', error);
+  });
+  server.listen(rotationPort, '127.0.0.1', () => {
+    console.log(`Key rotation server listening on http://127.0.0.1:${rotationPort}/rotate-keys`);
+  });
 }
 
 function execFilePromise(command, args) {
@@ -366,8 +403,7 @@ async function ensureLocalWhisperProcess() {
     };
   }
 
-  const appRoot = path.join(__dirname, '../..');
-  const serverPath = path.join(appRoot, 'local_whisper_server.py');
+  const serverPath = getResourcePath('local_whisper_server.py');
   if (!fs.existsSync(serverPath)) {
     localWhisperLastError = 'Local Whisper server file was not found. Reinstall ScreenSense or run local_whisper_server.py from the app folder.';
     return {
@@ -412,8 +448,7 @@ async function ensureLocalWhisperProcess() {
 
 // ── Tray Setup ─────────────────────────────────────────────────────────
 function createTray() {
-  // Path corrected to point from src/main to assets/
-  const iconPath = path.join(__dirname, '../../assets/icon.png');
+  const iconPath = getResourcePath('assets', 'icon.png');
   const icon = fs.existsSync(iconPath)
     ? nativeImage.createFromPath(iconPath)
     : createFallbackTrayIcon();

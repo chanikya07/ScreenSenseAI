@@ -10,7 +10,7 @@ Go to [Releases](../../releases) and download the installer for your OS:
 
 | Platform | File |
 |----------|------|
-| Windows | `ScreenSense-AI-Setup-x.x.x.exe` |
+| Windows | [`ScreenSense-AI-Setup-1.0.0.exe`](dist/ScreenSense-AI-Setup-1.0.0.exe) |
 | macOS | `ScreenSense-AI-x.x.x.dmg` |
 | Linux | `ScreenSense-AI-x.x.x.AppImage` |
 
@@ -62,8 +62,8 @@ Or double-click `start-local-whisper.bat` on Windows.
 ## For developers
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/screensense-ai
-cd screensense-ai
+git clone https://github.com/chanikya07/ScreenSenseAI.git
+cd ScreenSenseAI
 npm install
 npm start
 ```

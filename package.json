@@ -2,6 +2,7 @@
   "name": "screensense-ai",
   "version": "1.0.0",
   "description": "AI-powered screen overlay for captions and scene analysis",
+  "author": "ScreenSense AI",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -15,6 +16,7 @@
     "directories": {
       "output": "dist"
     },
+    "artifactName": "ScreenSense-AI-Setup-${version}.${ext}",
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -27,15 +29,30 @@
       {
         "from": "assets/",
         "to": "assets/"
+      },
+      {
+        "from": "local_whisper_server.py",
+        "to": "local_whisper_server.py"
+      },
+      {
+        "from": "requirements-local-whisper.txt",
+        "to": "requirements-local-whisper.txt"
+      },
+      {
+        "from": "start-local-whisper.bat",
+        "to": "start-local-whisper.bat"
       }
     ],
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
     },
     "mac": {
       "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities",
+      "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": ["AppImage", "deb"],

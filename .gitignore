@@ -3,6 +3,11 @@
 .env.local
 .docx_extract/
 node_modules/
-dist/
+dist/*
+!dist/
+!dist/ScreenSense-AI-Setup-*.exe
+!dist/ScreenSense-AI-Setup-*.exe.blockmap
+!dist/latest.yml
+dist/win-unpacked/
 out/
 *.log
