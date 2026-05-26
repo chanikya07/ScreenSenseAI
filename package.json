@@ -57,7 +57,8 @@
     "linux": {
       "target": ["AppImage", "deb"],
       "icon": "assets/icon.png",
-      "category": "Utility"
+      "category": "Utility",
+      "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
