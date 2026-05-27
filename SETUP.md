@@ -8,7 +8,6 @@ A floating AI orb that lives on your Windows desktop. Click it to get:
 - **Transcript Notes** — full session notes exported as Markdown/PDF
 - **Video Summarizer** — NotebookLM-style summary with chapters
 - **AI Fake Detector** — checks if the on-screen video looks AI-generated or deepfake
-- **Feedback** — share your experience, report bugs, suggest improvements
 
 ---
 
@@ -125,16 +124,6 @@ The orb will appear in the bottom-right of your screen.
 - Records captions + scene descriptions throughout
 - At end: generates chapter breakdown, key points, and action items
 - Exports as Markdown (open in Obsidian, Notion, etc.)
-
-### Feedback
-- Share your experience with ScreenSense
-- Rate each session (Good/Neutral/Bad)
-- Report bugs or suggest features
-- All feedback stored locally, optional cloud integration
-- Export as JSON, CSV, or Markdown
-- See [FEEDBACK.md](./FEEDBACK.md) for complete details
-
----
 
 ## Google Meet Specific Setup
 

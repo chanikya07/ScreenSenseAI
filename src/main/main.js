@@ -797,26 +797,6 @@ function createSettingsWindow() {
   wireWindowStateEvents(settingsWin);
 }
 
-function createFeedbackWindow() {
-  let feedbackWin = new BrowserWindow({
-    width: 900, height: 600, minWidth: 700, minHeight: 500, resizable: true, maximizable: true, minimizable: true, frame: false, transparent: true,
-    center: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    }
-  });
-  protectAppWindowFromCapture(feedbackWin);
-
-  feedbackWin.loadFile(path.join(__dirname, '../renderer/feedback/feedback.html'));
-  wireWindowStateEvents(feedbackWin);
-
-  feedbackWin.on('closed', () => {
-    feedbackWin = null;
-  });
-}
-
 // ── IPC Bridge ─────────────────────────────────────────────────────────
 function setupIPC() {
   ipcMain.on('orb:click', () => createPanelWindow());
@@ -994,117 +974,6 @@ function setupIPC() {
     mode: currentMode
   }));
 
-  // ── Feedback System ────────────────────────────────────────────────
-  const feedbackStore = new Store({ name: 'feedback', clearInvalidConfig: false });
-  if (!feedbackStore.get('feedbackHistory')) {
-    feedbackStore.set('feedbackHistory', []);
-  }
-
-  ipcMain.handle('feedback:submit', async (event, payload) => {
-    const { rating, comment, mode, sessionDuration, screenshot } = payload;
-    const feedback = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      rating, comment, mode, sessionDuration, screenshot
-    };
-    const history = feedbackStore.get('feedbackHistory') || [];
-    history.push(feedback);
-    feedbackStore.set('feedbackHistory', history);
-    return { success: true, id: feedback.id };
-  });
-
-  ipcMain.handle('feedback:getHistory', async (event) => {
-    return feedbackStore.get('feedbackHistory') || [];
-  });
-
-  ipcMain.handle('feedback:clearHistory', async (event) => {
-    feedbackStore.set('feedbackHistory', []);
-    return { success: true };
-  });
-
-  ipcMain.handle('feedback:delete', async (event, id) => {
-    try {
-      const history = feedbackStore.get('feedbackHistory') || [];
-      const next = (history || []).filter((f) => String(f.id) !== String(id));
-      feedbackStore.set('feedbackHistory', next);
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: String(err) };
-    }
-  });
-
-  ipcMain.handle('feedback:update', async (event, id, patch = {}) => {
-    try {
-      const history = feedbackStore.get('feedbackHistory') || [];
-      const next = (history || []).map((f) => (String(f.id) === String(id) ? { ...f, ...patch } : f));
-      feedbackStore.set('feedbackHistory', next);
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: String(err) };
-    }
-  });
-
-  ipcMain.handle('feedback:export', async (event, format = 'json') => {
-    const history = feedbackStore.get('feedbackHistory') || [];
-    let content = '';
-    let filename = 'feedback_export';
-    let type = 'json';
-
-    if (format === 'json') {
-      content = JSON.stringify(history, null, 2);
-      type = 'json';
-    } else if (format === 'csv') {
-      const headers = ['ID', 'Timestamp', 'Rating', 'Mode', 'Session Duration (s)', 'Comment'];
-      const rows = history.map(f => [
-        f.id,
-        f.timestamp,
-        f.rating,
-        f.mode || 'N/A',
-        Math.round((f.sessionDuration || 0) / 1000),
-        `"${(f.comment || '').replace(/"/g, '""')}"`
-      ]);
-      content = [headers, ...rows].map(r => r.join(',')).join('\n');
-      type = 'csv';
-      filename = 'feedback_export';
-    } else if (format === 'markdown') {
-      content = '# ScreenSense AI - Feedback Report\n\n';
-      content += `Generated: ${new Date().toISOString()}\n`;
-      content += `Total Feedback: ${history.length}\n\n`;
-      history.forEach((f, i) => {
-        content += `## Feedback #${i + 1}\n`;
-        content += `- **Timestamp**: ${f.timestamp}\n`;
-        content += `- **Rating**: ${f.rating}\n`;
-        content += `- **Mode**: ${f.mode || 'N/A'}\n`;
-        content += `- **Duration**: ${Math.round((f.sessionDuration || 0) / 1000)}s\n`;
-        content += `- **Comment**: ${f.comment || 'N/A'}\n\n`;
-      });
-      type = 'md';
-      filename = 'feedback_report';
-    }
-
-    const downloadsPath = app.getPath('downloads');
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filePath = path.join(downloadsPath, `${filename}_${ts}.${type}`);
-    fs.writeFileSync(filePath, content, 'utf-8');
-    shell.showItemInFolder(filePath);
-    return filePath;
-  });
-
-  ipcMain.handle('feedback:sendToServer', async (event, payload) => {
-    const { feedbackData, webhookUrl } = payload;
-    try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(feedbackData)
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return { success: true, message: 'Feedback sent successfully' };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  });
-
   ipcMain.on('orb:drag', (event, payload = {}) => {
     if (!orbWin) return;
     const [x, y] = orbWin.getPosition();
@@ -1168,6 +1037,5 @@ function setupIPC() {
   });
 
   ipcMain.on('settings:open', () => createSettingsWindow());
-  ipcMain.on('feedback:open', () => createFeedbackWindow());
 
 }

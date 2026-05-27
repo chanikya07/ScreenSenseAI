@@ -319,41 +319,6 @@
     gap: 8px;
   }
 
-  /* Reference text + similarity */
-  .reference-section {
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .reference-input {
-    width: 100%;
-    min-height: 70px;
-    resize: vertical;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    line-height: 1.45;
-    padding: 10px 12px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-
-  .reference-input:focus,
-  .reference-input:hover {
-    border-color: var(--border-hover);
-  }
-
-  .reference-actions {
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
   .ref-btn {
     padding: 6px 10px;
     border-radius: 8px;
@@ -369,26 +334,6 @@
 
   .ref-btn:hover {
     background: rgba(124,108,252,0.2);
-  }
-
-  .similarity-box {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-  }
-
-  .similarity-value {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    color: var(--text);
-    letter-spacing: 0.03em;
-  }
-
-  .similarity-hint {
-    font-size: 10px;
-    color: var(--muted);
-    text-align: right;
   }
 
   /* Mode cards */
@@ -858,6 +803,29 @@
     cursor: wait;
   }
 
+  .mic-btn {
+    width: 30px;
+    height: 28px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(56,182,255,0.1);
+    border: 1px solid rgba(56,182,255,0.28);
+    border-radius: 8px;
+    color: var(--accent2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mic-btn.visible { display: flex; }
+  .mic-btn.muted {
+    background: rgba(255,100,100,0.1);
+    border-color: rgba(255,100,100,0.3);
+    color: #ff6464;
+  }
+
   .timer {
     display: none;
     font-family: 'DM Mono', monospace;
@@ -891,6 +859,39 @@
   .export-lang-item { padding: 8px 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 600; }
   .export-lang-item:hover { background: rgba(124,108,252,0.08); color: var(--text); border-color: rgba(124,108,252,0.28); }
   .export-modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
+  .recording-option-list {
+    display: grid;
+    gap: 8px;
+    margin: 10px 0 12px;
+  }
+  .recording-option {
+    width: 100%;
+    text-align: left;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .recording-option:hover {
+    border-color: rgba(255,181,71,0.38);
+    background: rgba(255,181,71,0.08);
+  }
+  .recording-option strong {
+    display: block;
+    font-size: 12.5px;
+    margin-bottom: 3px;
+  }
+  .recording-option span {
+    display: block;
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: var(--muted);
+  }
 </style>
 </head>
 <body>
@@ -932,23 +933,6 @@
       <div class="source-actions">
         <button class="ref-btn" id="pickAreaBtn" onclick="pickAreaRegion()">Select Area</button>
         <button class="ref-btn" id="clearAreaBtn" onclick="clearAreaRegion()">Clear</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Reference text + similarity (idle only) -->
-  <div class="reference-section" id="referenceSection">
-    <div class="section-label">Reference text</div>
-    <textarea
-      id="referenceInput"
-      class="reference-input"
-      placeholder="Paste the reference text here to compare with captured content."
-    ></textarea>
-    <div class="reference-actions">
-      <button class="ref-btn" onclick="generateSimilarityScore()">Generate Score</button>
-      <div class="similarity-box">
-        <div class="similarity-value" id="similarityValue">Similarity: --</div>
-        <div class="similarity-hint" id="similarityHint">Needs reference and captured text</div>
       </div>
     </div>
   </div>
@@ -1000,18 +984,11 @@
         <div class="mode-badge">Trust Check</div>
       </div>
 
-      <div class="mode-card" style="background: linear-gradient(135deg, rgba(255,181,71,0.08), rgba(255,100,100,0.08)); border-color: rgba(255,181,71,0.28); cursor: pointer;" onclick="startMode('call-recording')">
+      <div class="mode-card" style="background: linear-gradient(135deg, rgba(255,181,71,0.08), rgba(255,100,100,0.08)); border-color: rgba(255,181,71,0.28); cursor: pointer;" onclick="openCallRecordingOptions()">
         <div class="mode-icon">REC</div>
         <div class="mode-name">Call Recording</div>
-        <div class="mode-desc">Record system audio from the selected call, meeting, tab, or video and save it as an audio file.</div>
+        <div class="mode-desc">Choose system audio, mic voice, or both before opening the recording panel.</div>
         <div class="mode-badge">Audio</div>
-      </div>
-
-      <div class="mode-card" style="background: linear-gradient(135deg, rgba(50,220,150,0.08), rgba(56,182,255,0.08)); border-color: rgba(50,220,150,0.3); cursor: pointer;" onclick="window.ss.openFeedback()">
-        <div class="mode-icon">💬</div>
-        <div class="mode-name">Feedback</div>
-        <div class="mode-desc">Share your experience, report bugs, or suggest improvements.</div>
-        <div class="mode-badge">Community</div>
       </div>
 
     </div>
@@ -1028,6 +1005,7 @@
         </div>
       </div>
       <div class="session-action-row">
+        <button class="mic-btn" id="micToggleBtn" onclick="toggleRecordingMic()" title="Toggle microphone">MIC</button>
         <button class="toggle-btn" id="playbackToggleBtn" onclick="toggleSessionPlayback()">Pause</button>
         <button class="stop-btn" onclick="stopSession()">■ Stop</button>
       </div>
@@ -1066,7 +1044,6 @@
       <button class="audio-btn" id="audioBtn" onclick="handleAudioRecordingButton()">Record Audio</button>
       <button class="export-btn" id="exportBtn" onclick="doExport()">↓ Export</button>
       <button class="video-btn" id="videoBtn" onclick="doGenerateVideo()">AI Video</button>
-      <button class="chat-footer-btn" onclick="window.ss.openFeedback()" title="Open Feedback">💬 Feedback</button>
     </div>
   </div>
 
@@ -1078,6 +1055,30 @@
       <div class="export-lang-list" id="exportLangList"></div>
       <div class="modal-actions">
         <button class="settings-footer-btn" onclick="closeExportModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="recordingModeBackdrop" onclick="closeCallRecordingOptions(event)">
+    <div class="export-modal" onclick="event.stopPropagation()">
+      <h3>Call recording source</h3>
+      <div class="hint" style="font-size:12px;margin-bottom:8px;color:var(--muted)">Choose what should be recorded before the recording panel opens.</div>
+      <div class="recording-option-list">
+        <button class="recording-option" onclick="selectCallRecordingMode('system')">
+          <strong>System audio only</strong>
+          <span>Records audio from the selected screen, window, meeting, tab, or video.</span>
+        </button>
+        <button class="recording-option" onclick="selectCallRecordingMode('mic')">
+          <strong>User voice only</strong>
+          <span>Records your microphone. Use the MIC button to mute or unmute during recording.</span>
+        </button>
+        <button class="recording-option" onclick="selectCallRecordingMode('both')">
+          <strong>System + user voice</strong>
+          <span>Records the selected source audio and your microphone together in one file.</span>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button class="settings-footer-btn" onclick="closeCallRecordingOptions()">Cancel</button>
       </div>
     </div>
   </div>
@@ -1214,11 +1215,17 @@ function createTask() {
     transcriptionChain: Promise.resolve(),
     noteGenerationChain: Promise.resolve(),
     audioRecordingStream: null,
+    audioRecordingSystemStream: null,
+    audioRecordingMicStream: null,
+    audioRecordingAudioContext: null,
+    audioRecordingDestination: null,
     audioRecordingRecorder: null,
     audioRecordingChunks: [],
     audioRecordingMimeType: '',
     audioRecordingInProgress: false,
     audioRecordingExporting: false,
+    audioRecordingMode: 'system',
+    micMuted: false,
     hasCapturedFirstAudioSlice: false,
     sceneIntervalId: null,
     recorderRestartTimeoutId: null,
@@ -1359,11 +1366,17 @@ function hydrateDetachedTask(snapshot) {
     transcriptionChain: Promise.resolve(),
     noteGenerationChain: Promise.resolve(),
     audioRecordingStream: null,
+    audioRecordingSystemStream: null,
+    audioRecordingMicStream: null,
+    audioRecordingAudioContext: null,
+    audioRecordingDestination: null,
     audioRecordingRecorder: null,
     audioRecordingChunks: [],
     audioRecordingMimeType: '',
     audioRecordingInProgress: false,
     audioRecordingExporting: false,
+    audioRecordingMode: 'system',
+    micMuted: false,
     hasCapturedFirstAudioSlice: false,
     sceneIntervalId: null,
     recorderRestartTimeoutId: null,
@@ -1537,6 +1550,7 @@ function updateAudioButtonState(task = getActiveTask()) {
   btn.classList.add('visible');
   btn.classList.toggle('recording', Boolean(task.audioRecordingInProgress));
   btn.disabled = Boolean(task.audioRecordingExporting);
+  updateMicButtonState(task);
 
   if (task.audioRecordingExporting) {
     btn.textContent = 'Saving...';
@@ -1549,8 +1563,18 @@ function updateAudioButtonState(task = getActiveTask()) {
     btn.title = 'Save recorded call audio to Downloads';
   } else {
     btn.textContent = 'Record Audio';
-    btn.title = 'Record system audio from the selected screen or window';
+    btn.title = 'Choose what call audio to record';
   }
+}
+
+function updateMicButtonState(task = getActiveTask()) {
+  const btn = document.getElementById('micToggleBtn');
+  if (!btn) return;
+  const supportsMic = task.mode === 'call-recording' && (task.audioRecordingMode === 'mic' || task.audioRecordingMode === 'both');
+  btn.classList.toggle('visible', supportsMic);
+  btn.classList.toggle('muted', Boolean(task.micMuted));
+  btn.textContent = task.micMuted ? 'MUTE' : 'MIC';
+  btn.title = task.micMuted ? 'Microphone muted' : 'Microphone recording';
 }
 
 function renderActiveTask() {
@@ -1564,13 +1588,13 @@ function renderActiveTask() {
 
   const isRunningOrPaused = task.active || task.paused;
   document.getElementById('sourceSection').style.display = isRunningOrPaused ? 'none' : '';
-  document.getElementById('referenceSection').style.display = isRunningOrPaused ? 'none' : '';
   document.getElementById('modesSection').style.display = isRunningOrPaused ? 'none' : '';
   document.getElementById('activeView').classList.toggle('visible', isRunningOrPaused);
 
   const label = task.mode ? `${MODE_ICONS[task.mode] || ''} ${MODE_LABELS[task.mode] || task.mode}`.trim() : task.title;
   document.getElementById('activeModeLabel').textContent = label;
   setPlaybackButtonState(task);
+  updateMicButtonState(task);
 
   const feed = document.getElementById('feed');
   feed.innerHTML = '';
@@ -1759,7 +1783,6 @@ function stopSession() {
   setPlaybackButtonState();
 
   document.getElementById('sourceSection').style.display = '';
-  document.getElementById('referenceSection').style.display = '';
   document.getElementById('modesSection').style.display = '';
   document.getElementById('activeView').classList.remove('visible');
   document.getElementById('exportBtn').classList.remove('visible');
@@ -1771,6 +1794,35 @@ function stopSession() {
   transcriptEntries = [];
   sceneEntries = [];
   faceEntries = [];
+}
+
+function getRecordingModeLabel(mode = 'system') {
+  if (mode === 'mic') return 'User voice recording';
+  if (mode === 'both') return 'System and user audio recording';
+  return 'System audio recording';
+}
+
+function openCallRecordingOptions() {
+  const sourceId = document.getElementById('sourceSelect')?.value;
+  const task = getActiveTask();
+  if (!sourceId) {
+    addFeedEntry('Choose a screen or window source before starting.', '00:00', 'scene', task);
+    return;
+  }
+  document.getElementById('recordingModeBackdrop')?.classList.add('visible');
+}
+
+function closeCallRecordingOptions(event = null) {
+  if (event && event.target && event.target.id !== 'recordingModeBackdrop') return;
+  document.getElementById('recordingModeBackdrop')?.classList.remove('visible');
+}
+
+function selectCallRecordingMode(mode) {
+  const task = getActiveTask();
+  task.audioRecordingMode = ['system', 'mic', 'both'].includes(mode) ? mode : 'system';
+  task.micMuted = false;
+  closeCallRecordingOptions();
+  startMode('call-recording');
 }
 
 function startMode(mode) {
@@ -1798,6 +1850,10 @@ function startMode(mode) {
   task.audioRecordingChunks = [];
   task.audioRecordingMimeType = '';
   task.audioRecordingExporting = false;
+  if (mode === 'call-recording' && !['system', 'mic', 'both'].includes(task.audioRecordingMode)) {
+    task.audioRecordingMode = 'system';
+  }
+  task.micMuted = false;
   task.hasCapturedFirstAudioSlice = false;
 
   window.ss.startMode(mode, task.id);
@@ -1815,7 +1871,7 @@ function startMode(mode) {
   updateVideoButtonState();
 
   if (mode === 'call-recording') {
-    addFeedEntry('Starting call audio recording...', '00:00', 'scene', task);
+    addFeedEntry(`Starting ${getRecordingModeLabel(task.audioRecordingMode).toLowerCase()}...`, '00:00', 'scene', task);
     startCallRecording(task);
     return;
   }
@@ -1856,6 +1912,11 @@ function resumeSession() {
   addFeedEntry('Session resumed.', getElapsedTimestamp(task), 'scene', task);
   renderTaskTabs();
   renderActiveTask();
+
+  if (task.mode === 'call-recording') {
+    startCallRecording(task);
+    return;
+  }
 
   startProcessing(task, task.mode, task.sourceId).catch((error) => {
     handleProcessingStartupError(task, task.mode, task.sourceId, error);
@@ -1937,88 +1998,12 @@ function stopSession(taskId = activeTaskId) {
   task.chatMessages = [];
   task.transcriptionChain = Promise.resolve();
   task.noteGenerationChain = Promise.resolve();
+  task.audioRecordingMode = 'system';
+  task.micMuted = false;
   window.ss.stopMode(task.id);
 
   renderTaskTabs();
   if (task.id === activeTaskId) renderActiveTask();
-}
-
-function tokenizeText(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((token) => token.length > 1);
-}
-
-function buildTermFrequency(tokens) {
-  const map = new Map();
-  tokens.forEach((token) => {
-    map.set(token, (map.get(token) || 0) + 1);
-  });
-  return map;
-}
-
-function cosineSimilarity(aText, bText) {
-  const aTokens = tokenizeText(aText);
-  const bTokens = tokenizeText(bText);
-  if (!aTokens.length || !bTokens.length) return 0;
-
-  const aFreq = buildTermFrequency(aTokens);
-  const bFreq = buildTermFrequency(bTokens);
-  let dot = 0;
-  let aMagSq = 0;
-  let bMagSq = 0;
-
-  for (const [, count] of aFreq) {
-    aMagSq += count * count;
-  }
-  for (const [, count] of bFreq) {
-    bMagSq += count * count;
-  }
-  for (const [term, aCount] of aFreq) {
-    const bCount = bFreq.get(term) || 0;
-    dot += aCount * bCount;
-  }
-
-  if (!aMagSq || !bMagSq) return 0;
-  return dot / (Math.sqrt(aMagSq) * Math.sqrt(bMagSq));
-}
-
-function getCapturedComparisonText() {
-  const task = getActiveTask();
-  const transcriptText = task.transcriptEntries.map((entry) => entry.text).join(' ');
-  const sceneText = task.sceneEntries.map((entry) => entry.text).join(' ');
-  const feedText = task.feedEntries.map((entry) => entry.text).join(' ');
-  return `${transcriptText} ${sceneText} ${feedText}`.trim();
-}
-
-function setSimilarityStatus(scoreText, hintText) {
-  document.getElementById('similarityValue').textContent = `Similarity: ${scoreText}`;
-  document.getElementById('similarityHint').textContent = hintText;
-}
-
-function generateSimilarityScore() {
-  const referenceText = document.getElementById('referenceInput').value.trim();
-  const capturedText = getCapturedComparisonText();
-
-  if (!referenceText) {
-    setSimilarityStatus('--', 'Add reference text first');
-    return;
-  }
-  if (!capturedText) {
-    setSimilarityStatus('--', 'Start a session to capture text');
-    return;
-  }
-
-  const score = cosineSimilarity(referenceText, capturedText);
-  const percentage = Math.round(score * 100);
-  const qualityLabel = percentage >= 75
-    ? 'High match'
-    : percentage >= 45
-      ? 'Moderate match'
-      : 'Low match';
-  setSimilarityStatus(`${percentage}%`, qualityLabel);
 }
 
 function updateTimer() {
@@ -2329,6 +2314,40 @@ async function getDesktopAudioStream(sourceId) {
   }
 
   return new MediaStream(audioTracks);
+}
+
+async function getMicrophoneAudioStream() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    },
+    video: false
+  });
+  const audioTracks = stream.getAudioTracks();
+  if (!audioTracks.length) {
+    stream.getTracks().forEach((track) => track.stop());
+    throw new Error('No microphone audio track was available. Check microphone permissions and input device settings.');
+  }
+  return new MediaStream(audioTracks);
+}
+
+function createMixedAudioStream(streams, task) {
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) {
+    throw new Error('Audio mixing is not supported in this browser runtime.');
+  }
+  const audioContext = new AudioContextCtor();
+  const destination = audioContext.createMediaStreamDestination();
+  streams.forEach((stream) => {
+    if (!stream?.getAudioTracks?.().length) return;
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(destination);
+  });
+  task.audioRecordingAudioContext = audioContext;
+  task.audioRecordingDestination = destination;
+  return destination.stream;
 }
 
 // Semantic Chunking Functions
@@ -3555,6 +3574,24 @@ function getAudioFileExtension(mimeType = '') {
   return 'webm';
 }
 
+function cleanupCallRecordingStreams(task = getActiveTask()) {
+  [
+    task.audioRecordingStream,
+    task.audioRecordingSystemStream,
+    task.audioRecordingMicStream
+  ].forEach((stream) => {
+    stream?.getTracks?.().forEach((track) => track.stop());
+  });
+  if (task.audioRecordingAudioContext) {
+    task.audioRecordingAudioContext.close().catch(() => {});
+  }
+  task.audioRecordingStream = null;
+  task.audioRecordingSystemStream = null;
+  task.audioRecordingMicStream = null;
+  task.audioRecordingAudioContext = null;
+  task.audioRecordingDestination = null;
+}
+
 async function startCallRecording(task = getActiveTask()) {
   if (!task.active && !task.paused) {
     addFeedEntry('Start a session before recording call audio.', getElapsedTimestamp(task), 'scene', task);
@@ -3569,9 +3606,34 @@ async function startCallRecording(task = getActiveTask()) {
   if (task.audioRecordingInProgress) return;
 
   try {
-    task.audioRecordingChunks = [];
+    if (!Array.isArray(task.audioRecordingChunks)) {
+      task.audioRecordingChunks = [];
+    }
     task.audioRecordingMimeType = getSupportedRecordingMimeType();
-    task.audioRecordingStream = await getDesktopAudioStream(task.sourceId);
+    const mode = ['system', 'mic', 'both'].includes(task.audioRecordingMode) ? task.audioRecordingMode : 'system';
+    task.audioRecordingMode = mode;
+
+    if (mode === 'system' || mode === 'both') {
+      task.audioRecordingSystemStream = await getDesktopAudioStream(task.sourceId);
+    }
+    if (mode === 'mic' || mode === 'both') {
+      task.audioRecordingMicStream = await getMicrophoneAudioStream();
+      task.audioRecordingMicStream.getAudioTracks().forEach((track) => {
+        track.enabled = !task.micMuted;
+      });
+    }
+
+    if (mode === 'both') {
+      task.audioRecordingStream = createMixedAudioStream([
+        task.audioRecordingSystemStream,
+        task.audioRecordingMicStream
+      ], task);
+    } else {
+      task.audioRecordingStream = mode === 'mic'
+        ? task.audioRecordingMicStream
+        : task.audioRecordingSystemStream;
+    }
+
     task.audioRecordingRecorder = task.audioRecordingMimeType
       ? new MediaRecorder(task.audioRecordingStream, { mimeType: task.audioRecordingMimeType })
       : new MediaRecorder(task.audioRecordingStream);
@@ -3584,8 +3646,7 @@ async function startCallRecording(task = getActiveTask()) {
     });
     task.audioRecordingRecorder.addEventListener('stop', () => {
       task.audioRecordingInProgress = false;
-      task.audioRecordingStream?.getTracks().forEach((track) => track.stop());
-      task.audioRecordingStream = null;
+      cleanupCallRecordingStreams(task);
       task.audioRecordingRecorder = null;
       addFeedEntry('Audio recording stopped. Click Save Audio to download it.', getElapsedTimestamp(task), 'scene', task);
       updateAudioButtonState(task);
@@ -3593,12 +3654,11 @@ async function startCallRecording(task = getActiveTask()) {
 
     task.audioRecordingInProgress = true;
     task.audioRecordingRecorder.start(1000);
-    addFeedEntry('Recording system audio for this call...', getElapsedTimestamp(task), 'scene', task);
+    addFeedEntry(`${getRecordingModeLabel(mode)} is active.`, getElapsedTimestamp(task), 'scene', task);
   } catch (error) {
     task.audioRecordingInProgress = false;
     task.audioRecordingRecorder = null;
-    task.audioRecordingStream?.getTracks().forEach((track) => track.stop());
-    task.audioRecordingStream = null;
+    cleanupCallRecordingStreams(task);
     addFeedEntry(error.message || 'Unable to start audio recording.', getElapsedTimestamp(task), 'scene', task);
   } finally {
     updateAudioButtonState(task);
@@ -3612,12 +3672,22 @@ function stopCallRecording(task = getActiveTask()) {
     task.audioRecordingRecorder.stop();
   } catch (error) {
     console.warn('Audio recorder stop failed:', error);
-    task.audioRecordingStream?.getTracks().forEach((track) => track.stop());
-    task.audioRecordingStream = null;
+    cleanupCallRecordingStreams(task);
     task.audioRecordingRecorder = null;
   }
   task.audioRecordingInProgress = false;
   updateAudioButtonState(task);
+}
+
+function toggleRecordingMic() {
+  const task = getActiveTask();
+  if (!(task.audioRecordingMode === 'mic' || task.audioRecordingMode === 'both')) return;
+  task.micMuted = !task.micMuted;
+  task.audioRecordingMicStream?.getAudioTracks?.().forEach((track) => {
+    track.enabled = !task.micMuted;
+  });
+  addFeedEntry(task.micMuted ? 'Microphone muted.' : 'Microphone unmuted.', getElapsedTimestamp(task), 'scene', task);
+  updateMicButtonState(task);
 }
 
 async function exportCallRecording(task = getActiveTask()) {
@@ -3656,7 +3726,7 @@ async function exportCallRecording(task = getActiveTask()) {
 function handleAudioRecordingButton() {
   const task = getActiveTask();
   if (!task.active && !task.paused && !task.audioRecordingChunks?.length) {
-    startMode('call-recording');
+    openCallRecordingOptions();
     return;
   }
   if (task.audioRecordingInProgress) {
@@ -3667,7 +3737,11 @@ function handleAudioRecordingButton() {
     exportCallRecording(task);
     return;
   }
-  startCallRecording(task);
+  if (task.mode === 'call-recording') {
+    startCallRecording(task);
+    return;
+  }
+  openCallRecordingOptions();
 }
 
 function buildVideoPromptFromSummary(summaryText) {
@@ -4120,9 +4194,6 @@ window.ss.on('transcript:new', (entry) => {
         }
       });
   }
-  if (task.id === activeTaskId && document.getElementById('referenceInput').value.trim()) {
-    generateSimilarityScore();
-  }
 });
 
 window.ss.on('scene:new', (entry) => {
@@ -4130,9 +4201,6 @@ window.ss.on('scene:new', (entry) => {
   task.sceneEntries.push(entry);
   if (task.mode !== 'summarizer') {
     addFeedEntry(entry.text, entry.time, 'scene', task);
-  }
-  if (task.id === activeTaskId && document.getElementById('referenceInput').value.trim()) {
-    generateSimilarityScore();
   }
 });
 

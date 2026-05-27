@@ -402,32 +402,6 @@
     </div>
   </div>
 
-  <!-- Feedback settings -->
-  <div>
-    <div class="section-title">Feedback</div>
-    <div class="field">
-      <label>Webhook URL (Optional)</label>
-      <div class="hint">Send feedback to your own server. Leave empty to store locally only.</div>
-      <input type="text" id="feedbackWebhook" placeholder="https://your-server.com/feedback">
-    </div>
-    <div class="field">
-      <label>Auto-send Feedback</label>
-      <div class="hint">Automatically send feedback submissions to webhook when enabled</div>
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <div class="t-label">Enable auto-send</div>
-          <div class="t-hint">Feedback will still be saved locally</div>
-        </div>
-        <button id="toggleAutoSend" class="toggle" onclick="toggleSetting(this, 'feedbackAutoSend')" data-value="false"></button>
-      </div>
-    </div>
-    <div class="field">
-      <button class="btn btn-ghost" onclick="openFeedbackWindow()" style="width: 100%; justify-content: center;">
-        Open Feedback Window →
-      </button>
-    </div>
-  </div>
-
 </div>
 
 <div class="save-bar">
@@ -444,12 +418,10 @@ async function init() {
   document.getElementById('inputLang').value = s.preferredLanguage || 'auto';
   document.getElementById('outputLang').value = s.preferredOutputLanguage || 'default';
   document.getElementById('sceneInterval').value = String(s.sceneInterval || 10000);
-  document.getElementById('feedbackWebhook').value = s.feedbackWebhook || '';
   setToggle('toggleDiarization', s.speakerDiarization === true);
   setToggle('toggleTranslate', s.autoTranslate !== false);
   setToggle('toggleCaptionCleanup', s.captionCleanup !== false);
   setToggle('toggleTimestamps', s.showTimestamps !== false);
-  setToggle('toggleAutoSend', s.feedbackAutoSend === true);
   checkOllamaStatus();
 }
 
@@ -498,10 +470,6 @@ function toggleShow(id, btn) {
   btn.textContent = isPass ? 'HIDE' : 'SHOW';
 }
 
-function openFeedbackWindow() {
-  window.ss.openFeedback();
-}
-
 async function saveSettings() {
   await window.ss.setSetting('openaiKey', document.getElementById('openaiKey').value.trim());
   await window.ss.setSetting('apiKey', document.getElementById('groqKey').value.trim());
@@ -512,8 +480,6 @@ async function saveSettings() {
   await window.ss.setSetting('autoTranslate', document.getElementById('toggleTranslate').dataset.value === 'true');
   await window.ss.setSetting('captionCleanup', document.getElementById('toggleCaptionCleanup').dataset.value === 'true');
   await window.ss.setSetting('showTimestamps', document.getElementById('toggleTimestamps').dataset.value === 'true');
-  await window.ss.setSetting('feedbackWebhook', document.getElementById('feedbackWebhook').value.trim());
-  await window.ss.setSetting('feedbackAutoSend', document.getElementById('toggleAutoSend').dataset.value === 'true');
 
   const msg = document.getElementById('savedMsg');
   msg.classList.add('show');

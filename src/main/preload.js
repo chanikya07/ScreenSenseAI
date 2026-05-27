@@ -26,7 +26,6 @@ contextBridge.exposeInMainWorld('ss', {
   setSetting: (key, value) => ipcRenderer.invoke('settings:set', key, value),
   getAllSettings: () => ipcRenderer.invoke('settings:getAll'),
   openSettings: () => ipcRenderer.send('settings:open'),
-  openFeedback: () => ipcRenderer.send('feedback:open'),
   ensureLocalWhisper: () => ipcRenderer.invoke('local-whisper:ensure'),
 
   // Transcript / Scene data
@@ -45,15 +44,6 @@ contextBridge.exposeInMainWorld('ss', {
   exportFile: (opts) => ipcRenderer.invoke('export:file', opts),
   exportBinary: (opts) => ipcRenderer.invoke('export:binary', opts),
 
-  // Feedback
-  feedbackSubmit: (data) => ipcRenderer.invoke('feedback:submit', data),
-  feedbackGetHistory: () => ipcRenderer.invoke('feedback:getHistory'),
-  feedbackClearHistory: () => ipcRenderer.invoke('feedback:clearHistory'),
-  feedbackExport: (format) => ipcRenderer.invoke('feedback:export', format),
-  feedbackSendToServer: (payload) => ipcRenderer.invoke('feedback:sendToServer', payload),
-  feedbackDelete: (id) => ipcRenderer.invoke('feedback:delete', id),
-  feedbackUpdate: (id, patch) => ipcRenderer.invoke('feedback:update', id, patch),
-
   // Window controls
   closeWindow: () => ipcRenderer.send('window:close'),
   minimizeWindow: () => ipcRenderer.send('window:minimize'),
@@ -64,7 +54,7 @@ contextBridge.exposeInMainWorld('ss', {
     const allowed = [
       'session:started', 'session:stopped', 'session:active', 'session:finalizing',
       'mode:active', 'transcript:new', 'scene:new', 'face:new', 'settings:updated',
-      'window:maximized-state', 'task:detached-init', 'feedback:submitted'
+      'window:maximized-state', 'task:detached-init'
     ];
     if (allowed.includes(channel)) {
       ipcRenderer.on(channel, (_, ...args) => cb(...args));
