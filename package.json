@@ -1,6 +1,6 @@
 {
   "name": "screensense-ai",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "AI-powered screen overlay for captions and scene analysis",
   "author": "chanikya07 <bellamchanikya@gmail.com>",
   "main": "src/main/main.js",
@@ -46,18 +46,36 @@
       }
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.ico",
       "signAndEditExecutable": false
     },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.utilities",
       "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "assets/icon.png",
       "category": "Utility",
       "maintainer": "chanikya07 <bellamchanikya@gmail.com>",
