@@ -19,10 +19,20 @@ jobs:
         include:
           - os: windows-latest
             platform: win
-          - os: macos-latest
-            platform: mac
+            script: build:win
+            artifact: screensense-win
+          - os: macos-15-intel
+            platform: mac-x64
+            script: build:mac:x64
+            artifact: screensense-mac-x64
+          - os: macos-15
+            platform: mac-arm64
+            script: build:mac:arm64
+            artifact: screensense-mac-arm64
           - os: ubuntu-latest
             platform: linux
+            script: build:linux
+            artifact: screensense-linux
 
     runs-on: ${{ matrix.os }}
 
@@ -40,7 +50,7 @@ jobs:
         run: npm ci
 
       - name: Build app
-        run: npm run build:${{ matrix.platform }}
+        run: npm run ${{ matrix.script }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -48,7 +58,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: screensense-${{ matrix.platform }}
+          name: ${{ matrix.artifact }}
           path: |
             dist/**/*.exe
             dist/**/*.dmg
