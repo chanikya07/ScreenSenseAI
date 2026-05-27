@@ -25,6 +25,7 @@
       "local_whisper_server.py",
       "requirements-local-whisper.txt",
       "start-local-whisper.bat",
+      "start-local-whisper.sh",
       "package.json"
     ],
     "extraResources": [
@@ -43,6 +44,10 @@
       {
         "from": "start-local-whisper.bat",
         "to": "start-local-whisper.bat"
+      },
+      {
+        "from": "start-local-whisper.sh",
+        "to": "start-local-whisper.sh"
       }
     ],
     "win": {
