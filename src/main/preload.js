@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('ss', {
   getAllSettings: () => ipcRenderer.invoke('settings:getAll'),
   openSettings: () => ipcRenderer.send('settings:open'),
   ensureLocalWhisper: () => ipcRenderer.invoke('local-whisper:ensure'),
+  openWelcome: () => ipcRenderer.send('welcome:open'),
+  startFromWelcome: () => ipcRenderer.send('welcome:start'),
 
   // Transcript / Scene data
   appendTranscript: (entry) => ipcRenderer.send('transcript:append', entry),

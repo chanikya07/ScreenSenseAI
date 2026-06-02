@@ -93,6 +93,7 @@ let orbWin = null;
 let panelWin = null;
 let overlayWin = null;
 let settingsWin = null;
+let welcomeWin = null;
 let selectorWin = null;
 const detachedPanelWins = new Set();
 let tray = null;
@@ -150,16 +151,23 @@ function clampOrbWindowPosition(x, y) {
   };
 }
 
-function createFallbackTrayIcon() {
-  const svg = encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-      <rect width="32" height="32" rx="8" fill="#0c0c14"/>
-      <ellipse cx="16" cy="16" rx="10" ry="7" fill="none" stroke="#8f83ff" stroke-width="2"/>
-      <circle cx="16" cy="16" r="3.5" fill="#38b6ff"/>
-      <circle cx="17.5" cy="14.5" r="1" fill="#ffffff" opacity=".75"/>
+function createOrbTrayIcon() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+      <defs>
+        <radialGradient id="orb-fill" cx="34%" cy="30%" r="74%">
+          <stop offset="0%" stop-color="#4d4a7a"/>
+          <stop offset="48%" stop-color="#252342"/>
+          <stop offset="100%" stop-color="#090913"/>
+        </radialGradient>
+      </defs>
+      <circle cx="32" cy="32" r="28" fill="url(#orb-fill)" stroke="#8f83ff" stroke-width="3"/>
+      <ellipse cx="32" cy="32" rx="18" ry="12" fill="none" stroke="#d8d1ff" stroke-width="4"/>
+      <circle cx="32" cy="32" r="7" fill="#8f83ff"/>
+      <circle cx="35" cy="29" r="2.2" fill="#ffffff"/>
     </svg>
-  `);
-  return nativeImage.createFromDataURL(`data:image/svg+xml;charset=UTF-8,${svg}`);
+  `;
+  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
 }
 
 function sendWindowMaximizeState(win) {
@@ -251,8 +259,7 @@ function isScreenSenseSource(source) {
 app.whenReady().then(() => {
   writeStartupLog(`App starting. packaged=${app.isPackaged} root=${appRoot}`);
   createTray();
-  createOrbWindow();
-  createOverlayWindow();
+  createWelcomeWindow();
   setupIPC();
   // Start local admin server for key rotation (only bound to localhost)
   try {
@@ -267,7 +274,7 @@ app.whenReady().then(() => {
   }, 1000);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createOrbWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWelcomeWindow();
   });
 });
 
@@ -448,17 +455,21 @@ async function ensureLocalWhisperProcess() {
 
 // ── Tray Setup ─────────────────────────────────────────────────────────
 function createTray() {
-  const iconPath = getResourcePath('assets', 'icon.png');
-  const icon = fs.existsSync(iconPath)
-    ? nativeImage.createFromPath(iconPath)
-    : createFallbackTrayIcon();
+  const trayIconPath = getResourcePath('assets', 'tray-orb.png');
+  const icon = fs.existsSync(trayIconPath)
+    ? nativeImage.createFromPath(trayIconPath)
+    : createOrbTrayIcon();
 
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
 
   const contextMenu = Menu.buildFromTemplate([
     { label: 'ScreenSense AI', enabled: false },
     { type: 'separator' },
-    { label: 'Show Orb', click: () => orbWin?.show() },
+    { label: 'Welcome', click: () => createWelcomeWindow() },
+    { label: 'Show Orb', click: () => {
+      createOrbWindow();
+      orbWin?.show();
+    } },
     { label: 'Settings', click: () => createSettingsWindow() },
     { type: 'separator' },
     { label: 'Quit', click: () => { app.quit(); process.exit(0); } }
@@ -469,7 +480,87 @@ function createTray() {
 }
 
 // ── Orb Window ─────────────────────────────────────────────────────────
+function createWelcomeWindow() {
+  if (welcomeWin && !welcomeWin.isDestroyed()) {
+    bringWindowToFront(welcomeWin);
+    return;
+  }
+
+  welcomeWin = new BrowserWindow({
+    width: 1040,
+    height: 720,
+    minWidth: 520,
+    minHeight: 420,
+    center: true,
+    frame: false,
+    transparent: true,
+    resizable: true,
+    maximizable: true,
+    minimizable: true,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+  protectAppWindowFromCapture(welcomeWin);
+  welcomeWin.loadFile(path.join(__dirname, '../renderer/welcome/welcome.html'));
+  wireWindowStateEvents(welcomeWin);
+  welcomeWin.once('ready-to-show', () => {
+    bringWindowToFront(welcomeWin);
+  });
+  welcomeWin.on('closed', () => {
+    welcomeWin = null;
+  });
+}
+
+function createAssistantSurface() {
+  createOrbWindow();
+  createOverlayWindow();
+  createPanelWindow();
+}
+
+function closeAssistantSurface() {
+  activeTaskModes.clear();
+  sessionActive = false;
+  currentMode = null;
+  clearTimeout(orbSnapFallbackTimer);
+
+  if (orbWin && !orbWin.isDestroyed()) {
+    orbWin.webContents.send('session:stopped');
+  }
+  if (overlayWin && !overlayWin.isDestroyed()) {
+    overlayWin.hide();
+    overlayWin.setIgnoreMouseEvents(true, { forward: true });
+  }
+
+  detachedPanelWins.forEach((win) => {
+    if (win && !win.isDestroyed()) win.close();
+  });
+
+  if (panelWin && !panelWin.isDestroyed()) {
+    const win = panelWin;
+    panelWin = null;
+    win.close();
+  }
+  if (orbWin && !orbWin.isDestroyed()) {
+    const win = orbWin;
+    orbWin = null;
+    win.close();
+  }
+  if (overlayWin && !overlayWin.isDestroyed()) {
+    const win = overlayWin;
+    overlayWin = null;
+    win.close();
+  }
+}
+
 function createOrbWindow() {
+  if (orbWin && !orbWin.isDestroyed()) {
+    return;
+  }
+
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const savedPos = store.get('orbPosition');
   const initialX = savedPos.x !== null ? savedPos.x : width - ORB_WINDOW_SIZE - 18;
@@ -490,10 +581,17 @@ function createOrbWindow() {
 
   // PATH FIXED: Going up from src/main to src/renderer
   orbWin.loadFile(path.join(__dirname, '../renderer/orb/orb.html'));
+  orbWin.on('closed', () => {
+    orbWin = null;
+  });
 }
 
 // ── Panel Window ───────────────────────────────────────────────────────
 function createPanelWindow() {
+  if (!orbWin || orbWin.isDestroyed()) {
+    createOrbWindow();
+  }
+
   if (panelWin && !panelWin.isDestroyed()) {
     if (!panelWin.isMaximized()) {
       panelWin.setAlwaysOnTop(true);
@@ -527,6 +625,9 @@ function createPanelWindow() {
   // PATH FIXED
   panelWin.loadFile(path.join(__dirname, '../renderer/panel/panel.html'));
   wireWindowStateEvents(panelWin);
+  panelWin.on('closed', () => {
+    panelWin = null;
+  });
 
   panelWin.on('blur', () => {
     if (isDetachingTaskWindow || isPanelTabDragActive) return;
@@ -594,6 +695,10 @@ function broadcastToPanelWindows(channel, ...args) {
 
 // ── Overlay Window ────────────────────────────────────────────────────
 function createOverlayWindow() {
+  if (overlayWin && !overlayWin.isDestroyed()) {
+    return;
+  }
+
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   overlayWin = new BrowserWindow({
@@ -614,6 +719,9 @@ function createOverlayWindow() {
   overlayWin.loadFile(path.join(__dirname, '../renderer/overlay/overlay.html'));
   overlayWin.setIgnoreMouseEvents(true, { forward: true });
   overlayWin.hide();
+  overlayWin.on('closed', () => {
+    overlayWin = null;
+  });
 }
 
 function resolveDisplayForSource(source) {
@@ -801,9 +909,19 @@ function createSettingsWindow() {
 function setupIPC() {
   ipcMain.on('orb:click', () => createPanelWindow());
 
+  ipcMain.on('welcome:open', () => createWelcomeWindow());
+
+  ipcMain.on('welcome:start', () => {
+    createAssistantSurface();
+    if (welcomeWin && !welcomeWin.isDestroyed()) {
+      welcomeWin.close();
+    }
+  });
+
   ipcMain.on('mode:start', (event, payload) => {
     const mode = typeof payload === 'object' ? payload.mode : payload;
     const taskId = typeof payload === 'object' ? payload.taskId : 'default';
+    createOverlayWindow();
     currentMode = mode;
     activeTaskModes.set(taskId || 'default', mode);
     sessionActive = true;
@@ -994,7 +1112,7 @@ function setupIPC() {
     if (!targetWindow) return;
 
     if (panelWin && targetWindow === panelWin) {
-      panelWin.hide();
+      closeAssistantSurface();
       return;
     }
 
