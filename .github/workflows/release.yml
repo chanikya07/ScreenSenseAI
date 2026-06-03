@@ -60,11 +60,15 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
             dist/**/*.exe
             dist/**/*.dmg
             dist/**/*.AppImage
             dist/**/*.deb
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload local Whisper artifact
         if: matrix.platform == 'linux'
@@ -83,6 +87,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
             dist/**/*.exe
             dist/**/*.dmg
             dist/**/*.AppImage
