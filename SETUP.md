@@ -32,6 +32,10 @@ This lets ScreenSense hear what's playing through your speakers.
 
 Live captions and transcript capture run through a local faster-whisper server. No Whisper API key is used.
 
+Release builds start the bundled local Whisper server automatically in the background. End users should not need to install Python or run `start-local-whisper.bat`.
+
+Developers can still run it manually:
+
 ```bash
 py -3.13 -m pip install -r requirements-local-whisper.txt
 py -3.13 local_whisper_server.py
@@ -41,7 +45,7 @@ Keep this terminal open while using Live Captions or Transcript Notes. The defau
 
 Local Whisper also needs `ffmpeg` on PATH so it can read browser audio chunks.
 
-On Windows, you can also double-click `start-local-whisper.bat`. If `python --version` opens Microsoft Store, install Python from python.org and tick "Add python.exe to PATH", or disable the Python app execution aliases in Windows Settings.
+On Windows development builds, you can also double-click `start-local-whisper.bat`. If `python --version` opens Microsoft Store, install Python from python.org and tick "Add python.exe to PATH", or disable the Python app execution aliases in Windows Settings.
 
 ### 4. API Keys
 
@@ -78,7 +82,7 @@ cd path\to\screensense-ai
 # 3. Install dependencies
 npm install
 
-# 4. In a separate terminal, start local Whisper
+# 4. In a separate terminal, start local Whisper for development
 py -3.13 -m pip install -r requirements-local-whisper.txt
 py -3.13 local_whisper_server.py
 
@@ -105,7 +109,8 @@ The orb will appear in the bottom-right of your screen.
 ### Live Captions
 - Click orb → Select source → Live Captions
 - Audio is captured in chunks and sent to `http://127.0.0.1:5001/transcribe`
-- `local_whisper_server.py` runs faster-whisper locally with zero API cost
+- A bundled local Whisper server runs faster-whisper locally with zero API cost in release builds.
+- If the app keeps waiting for local Whisper on `127.0.0.1:5001`, the build may be missing the bundled server, antivirus may have blocked it, or the first model download may still be running.
 - Captions appear in the overlay at the bottom of your screen
 - Works on YouTube, VLC, Google Meet, Zoom, Teams
 

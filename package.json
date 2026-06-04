@@ -6,22 +6,25 @@
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:mac:x64": "electron-builder --mac dmg --x64",
-    "build:mac:arm64": "electron-builder --mac dmg --arm64",
-    "build:linux": "electron-builder --linux"
+    "build:whisper": "node scripts/build-local-whisper.js",
+    "build:win": "npm run build:whisper && electron-builder --win",
+    "build:mac": "npm run build:whisper && electron-builder --mac",
+    "build:mac:x64": "npm run build:whisper && electron-builder --mac dmg --x64",
+    "build:mac:arm64": "npm run build:whisper && electron-builder --mac dmg --arm64",
+    "build:linux": "npm run build:whisper && electron-builder --linux"
   },
   "build": {
-    "appId": "com.yourname.screensense",
+    "appId": "ai.screensense.desktop",
     "productName": "ScreenSense AI",
     "directories": {
       "output": "dist"
     },
+    "afterPack": "scripts/verify-packaged-whisper.js",
     "artifactName": "ScreenSense-AI-Setup-${version}.${ext}",
     "files": [
       "src/**/*",
       "assets/**/*",
+      "local-whisper-bin/**/*",
       "local_whisper_server.py",
       "requirements-local-whisper.txt",
       "start-local-whisper.bat",
@@ -32,6 +35,10 @@
       {
         "from": "assets/",
         "to": "assets/"
+      },
+      {
+        "from": "local-whisper-bin/",
+        "to": "local-whisper-bin/"
       },
       {
         "from": "local_whisper_server.py",
@@ -60,7 +67,8 @@
         }
       ],
       "icon": "assets/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true,
+      "publisherName": "ScreenSense AI"
     },
     "mac": {
       "target": [
