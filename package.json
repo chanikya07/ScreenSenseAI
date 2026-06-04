@@ -1,6 +1,6 @@
 {
   "name": "screensense-ai",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "AI-powered screen overlay for captions and scene analysis",
   "author": "chanikya07 <bellamchanikya@gmail.com>",
   "main": "src/main/main.js",

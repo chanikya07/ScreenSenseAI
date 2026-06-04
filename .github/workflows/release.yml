@@ -54,6 +54,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Remove old build output
+        shell: bash
+        run: rm -rf dist build/local-whisper local_whisper_server local_whisper_server.exe
+
       - name: Build app
         run: npm run ${{ matrix.script }}
         env:

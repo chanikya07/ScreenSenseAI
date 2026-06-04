@@ -8,9 +8,6 @@ __pycache__/
 .tmp/
 dist/*
 !dist/
-!dist/ScreenSense-AI-Setup-*.exe
-!dist/ScreenSense-AI-Setup-*.exe.blockmap
-!dist/latest.yml
 dist/win-unpacked/
 dist/linux-unpacked/
 dist/__appImage-x64/
