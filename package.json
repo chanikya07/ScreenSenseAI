@@ -1,6 +1,6 @@
 {
   "name": "screensense-ai",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "AI-powered screen overlay for captions and scene analysis",
   "author": "chanikya07 <bellamchanikya@gmail.com>",
   "main": "src/main/main.js",
@@ -19,7 +19,7 @@
     "directories": {
       "output": "dist"
     },
-    "artifactName": "ScreenSense-AI-Setup-${version}.${ext}",
+    "artifactName": "ScreenSense-AI-Setup.${ext}",
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -36,6 +36,14 @@
       {
         "from": "assets/",
         "to": "assets/"
+      },
+      {
+        "from": ".",
+        "to": ".",
+        "filter": [
+          "local_whisper_server.exe",
+          "local_whisper_server"
+        ]
       },
       {
         "from": "local_whisper_server.py",
@@ -78,7 +86,7 @@
       ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.utilities",
-      "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
+      "artifactName": "ScreenSense-AI-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -88,7 +96,7 @@
       "icon": "assets/icon.png",
       "category": "Utility",
       "maintainer": "chanikya07 <bellamchanikya@gmail.com>",
-      "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
+      "artifactName": "ScreenSense-AI-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

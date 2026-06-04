@@ -18,14 +18,34 @@ function getResourcePath(...segments) {
   return path.join(appRoot, ...segments);
 }
 
+function getLocalWhisperCandidatePaths(fileName) {
+  const candidates = [
+    getResourcePath(fileName)
+  ];
+
+  if (app.isPackaged) {
+    candidates.push(
+      path.join(process.resourcesPath, 'app.asar.unpacked', fileName),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'build', 'local-whisper', fileName),
+      path.join(process.resourcesPath, 'app', fileName)
+    );
+  }
+
+  return candidates;
+}
+
+function firstExistingPath(paths) {
+  return paths.find((candidatePath) => fs.existsSync(candidatePath)) || null;
+}
+
 function getBundledLocalWhisperServerPath() {
   const platform = process.platform;
   if (platform === 'win32') {
-    const exePath = getResourcePath('local_whisper_server.exe');
-    if (fs.existsSync(exePath)) return exePath;
+    const exePath = firstExistingPath(getLocalWhisperCandidatePaths('local_whisper_server.exe'));
+    if (exePath) return exePath;
   } else {
-    const unixPath = getResourcePath('local_whisper_server');
-    if (fs.existsSync(unixPath)) {
+    const unixPath = firstExistingPath(getLocalWhisperCandidatePaths('local_whisper_server'));
+    if (unixPath) {
       try {
         fs.chmodSync(unixPath, 0o755);
       } catch (_) {
@@ -35,8 +55,8 @@ function getBundledLocalWhisperServerPath() {
     }
   }
 
-  const pyPath = getResourcePath('local_whisper_server.py');
-  if (fs.existsSync(pyPath)) return pyPath;
+  const pyPath = firstExistingPath(getLocalWhisperCandidatePaths('local_whisper_server.py'));
+  if (pyPath) return pyPath;
   return null;
 }
 
@@ -471,7 +491,7 @@ async function ensureLocalWhisperProcess() {
   });
   localWhisperProcess.on('error', (error) => {
     localWhisperLastError = error.code === 'ENOENT'
-      ? `Unable to start Python command "${python.command}". Install Python and make sure it is available on PATH, then restart ScreenSense.`
+      ? `Unable to start local Whisper command "${command}". Reinstall ScreenSense and try again.`
       : (error.message || String(error));
     localWhisperProcess = null;
   });
