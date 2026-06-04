@@ -6,11 +6,12 @@
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:mac:x64": "electron-builder --mac dmg --x64",
-    "build:mac:arm64": "electron-builder --mac dmg --arm64",
-    "build:linux": "electron-builder --linux"
+    "build:whisper": "python -m pip install --upgrade pip && python -m pip install -r requirements-local-whisper.txt && python scripts/build-local-whisper-server.py",
+    "build:win": "npm run build:whisper && electron-builder --win",
+    "build:mac": "npm run build:whisper && electron-builder --mac",
+    "build:mac:x64": "npm run build:whisper && electron-builder --mac dmg --x64",
+    "build:mac:arm64": "npm run build:whisper && electron-builder --mac dmg --arm64",
+    "build:linux": "npm run build:whisper && electron-builder --linux"
   },
   "build": {
     "appId": "com.yourname.screensense",
@@ -22,11 +23,14 @@
     "files": [
       "src/**/*",
       "assets/**/*",
-      "local_whisper_server.py",
+      "local_whisper_server*",
       "requirements-local-whisper.txt",
-      "start-local-whisper.bat",
-      "start-local-whisper.sh",
+      "start-local-whisper.*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "local_whisper_server*",
+      "ffmpeg*"
     ],
     "extraResources": [
       {

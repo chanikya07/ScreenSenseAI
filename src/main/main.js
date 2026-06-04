@@ -18,6 +18,28 @@ function getResourcePath(...segments) {
   return path.join(appRoot, ...segments);
 }
 
+function getBundledLocalWhisperServerPath() {
+  const platform = process.platform;
+  if (platform === 'win32') {
+    const exePath = getResourcePath('local_whisper_server.exe');
+    if (fs.existsSync(exePath)) return exePath;
+  } else {
+    const unixPath = getResourcePath('local_whisper_server');
+    if (fs.existsSync(unixPath)) {
+      try {
+        fs.chmodSync(unixPath, 0o755);
+      } catch (_) {
+        // best effort, continue even if chmod fails
+      }
+      return unixPath;
+    }
+  }
+
+  const pyPath = getResourcePath('local_whisper_server.py');
+  if (fs.existsSync(pyPath)) return pyPath;
+  return null;
+}
+
 function writeStartupLog(message, error = null) {
   try {
     const logDir = path.join(app.getPath('userData'), 'logs');
@@ -401,18 +423,9 @@ async function ensureLocalWhisperProcess() {
     return { ok: false, status: 'starting', error: localWhisperLastError };
   }
 
-  const python = await findPythonCommand();
-  if (!python) {
-    return {
-      ok: false,
-      status: 'missing-python',
-      error: 'Python is not installed on PATH. Install Python from python.org, tick "Add python.exe to PATH", then restart ScreenSense.'
-    };
-  }
-
-  const serverPath = getResourcePath('local_whisper_server.py');
-  if (!fs.existsSync(serverPath)) {
-    localWhisperLastError = 'Local Whisper server file was not found. Reinstall ScreenSense or run local_whisper_server.py from the app folder.';
+  const serverPath = getBundledLocalWhisperServerPath();
+  if (!serverPath) {
+    localWhisperLastError = 'Local Whisper server file was not found. Reinstall ScreenSense or add local_whisper_server.py/local_whisper_server.exe to the app folder.';
     return {
       ok: false,
       status: 'missing-server',
@@ -420,10 +433,29 @@ async function ensureLocalWhisperProcess() {
     };
   }
 
+  const isPythonScript = path.extname(serverPath).toLowerCase() === '.py';
+  let command;
+  let args = [];
+
+  if (isPythonScript) {
+    const python = await findPythonCommand();
+    if (!python) {
+      return {
+        ok: false,
+        status: 'missing-python',
+        error: 'Python is not installed on PATH. Install Python from python.org, tick "Add python.exe to PATH", then restart ScreenSense.'
+      };
+    }
+    command = python.command;
+    args = [...python.prefixArgs, serverPath];
+  } else {
+    command = serverPath;
+  }
+
   localWhisperLastError = 'Starting local Whisper...';
   localWhisperProcess = spawn(
-    python.command,
-    [...python.prefixArgs, serverPath],
+    command,
+    args,
     {
       cwd: appRoot,
       windowsHide: true,
