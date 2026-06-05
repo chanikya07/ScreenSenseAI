@@ -1,10 +1,10 @@
-name: Build and Release
+﻿name: Build and Release
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*.*.*'   # triggers only when you push a version tag like v1.0.0
+      - 'v*.*.*'
 
 permissions:
   contents: write
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '16'
           cache: 'npm'
 
       - name: Install dependencies

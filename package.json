@@ -1,8 +1,8 @@
-{
+﻿{
   "name": "screensense-ai",
-  "version": "1.0.3",
+  "version": "1.0.6",
   "description": "AI-powered screen overlay for captions and scene analysis",
-  "author": "chanikya07 <bellamchanikya@gmail.com>",
+  "author": "chanikya07 <bellamcha07@gmail.com>",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -30,6 +30,10 @@
       "start-local-whisper.bat",
       "start-local-whisper.sh",
       "package.json"
+    ],
+    "asarUnpack": [
+      "local_whisper_server*",
+      "ffmpeg*"
     ],
     "extraResources": [
       {
@@ -68,7 +72,8 @@
       ],
       "icon": "assets/icon.ico",
       "signAndEditExecutable": true,
-      "publisherName": "ScreenSense AI"
+      "publisherName": "ScreenSense AI",
+      "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
     },
     "mac": {
       "target": [
