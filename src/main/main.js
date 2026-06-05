@@ -76,6 +76,7 @@ const store = new Store({
     theme: 'dark',
     autoTranslate: true,
     speakerDiarization: false,
+    captionTranscriptionMode: 'local',
     sceneInterval: 10000, 
     audioDevice: 'default'
   }
@@ -104,6 +105,19 @@ let orbSnapFallbackTimer = null;
 let localWhisperProcess = null;
 let localWhisperLastError = '';
 const LOCAL_WHISPER_PORT = 5001;
+const ALLOWED_SETTING_KEYS = new Set([
+  'preferredLanguage',
+  'preferredOutputLanguage',
+  'apiKey',
+  'openaiKey',
+  'orbPosition',
+  'theme',
+  'autoTranslate',
+  'speakerDiarization',
+  'captionTranscriptionMode',
+  'sceneInterval',
+  'audioDevice'
+]);
 
 const ORB_WINDOW_SIZE = 96;
 const ORB_CENTER_OFFSET = ORB_WINDOW_SIZE / 2;
@@ -255,6 +269,16 @@ function isScreenSenseSource(source) {
   return name.includes('screensense') || name.includes('screen sense');
 }
 
+function sanitizeExportName(value, fallback) {
+  const cleaned = String(value || '')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\.+/g, '.')
+    .replace(/^\.+|\.+$/g, '')
+    .trim()
+    .slice(0, 80);
+  return cleaned || fallback;
+}
+
 // ── App Init ───────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   writeStartupLog(`App starting. packaged=${app.isPackaged} root=${appRoot}`);
@@ -361,6 +385,8 @@ function execFilePromise(command, args) {
   return new Promise((resolve, reject) => {
     execFile(command, args, { windowsHide: true }, (error, stdout, stderr) => {
       if (error) {
+        error.stdout = stdout;
+        error.stderr = stderr;
         reject(error);
         return;
       }
@@ -392,6 +418,78 @@ async function findPythonCommand() {
   return null;
 }
 
+function getBundledWhisperServerPath() {
+  const platformDir = process.platform === 'win32'
+    ? 'win'
+    : process.platform === 'darwin'
+      ? 'mac'
+      : 'linux';
+  const executableName = process.platform === 'win32'
+    ? 'local-whisper-server.exe'
+    : 'local-whisper-server';
+  return getResourcePath('local-whisper-bin', platformDir, executableName);
+}
+
+function startBundledWhisperServer(serverPath) {
+  if (process.platform !== 'win32') {
+    try {
+      fs.chmodSync(serverPath, 0o755);
+    } catch (error) {
+      writeStartupLog('Unable to mark bundled local Whisper server executable:', error);
+    }
+  }
+
+  localWhisperLastError = 'Starting bundled local Whisper...';
+  localWhisperProcess = spawn(serverPath, [], {
+    cwd: appRoot,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+
+  localWhisperProcess.stdout.on('data', (chunk) => {
+    localWhisperLastError = String(chunk).trim() || localWhisperLastError;
+  });
+  localWhisperProcess.stderr.on('data', (chunk) => {
+    localWhisperLastError = String(chunk).trim() || localWhisperLastError;
+  });
+  localWhisperProcess.on('error', (error) => {
+    localWhisperLastError = error.message || String(error);
+    localWhisperProcess = null;
+  });
+  localWhisperProcess.on('exit', (code) => {
+    if (code !== 0 && !localWhisperLastError) {
+      localWhisperLastError = `Bundled local Whisper exited with code ${code}.`;
+    }
+    localWhisperProcess = null;
+  });
+
+  return { ok: false, status: 'starting', error: localWhisperLastError };
+}
+
+async function checkLocalWhisperDependencies(python) {
+  const dependencyCheck = [
+    'import flask',
+    'import faster_whisper',
+    'import numpy',
+    'import imageio_ffmpeg'
+  ].join('; ');
+
+  try {
+    await execFilePromise(python.command, [
+      ...python.prefixArgs,
+      '-c',
+      dependencyCheck
+    ]);
+    return { ok: true };
+  } catch (error) {
+    const detail = error.stderr || error.stdout || error.message || String(error);
+    return {
+      ok: false,
+      error: `Local Whisper Python packages are missing. Run start-local-whisper.bat once from the ScreenSense AI install folder, or run: ${python.command} ${python.prefixArgs.join(' ')} -m pip install -r requirements-local-whisper.txt. Details: ${String(detail).trim()}`
+    };
+  }
+}
+
 async function ensureLocalWhisperProcess() {
   if (await checkLocalWhisperHealth()) {
     return { ok: true, status: 'running' };
@@ -401,12 +499,27 @@ async function ensureLocalWhisperProcess() {
     return { ok: false, status: 'starting', error: localWhisperLastError };
   }
 
+  const bundledServerPath = getBundledWhisperServerPath();
+  if (fs.existsSync(bundledServerPath)) {
+    return startBundledWhisperServer(bundledServerPath);
+  }
+
   const python = await findPythonCommand();
   if (!python) {
     return {
       ok: false,
       status: 'missing-python',
-      error: 'Python is not installed on PATH. Install Python from python.org, tick "Add python.exe to PATH", then restart ScreenSense.'
+      error: 'Bundled local Whisper server was not found and Python is not installed on PATH. Rebuild with npm run build:whisper before npm run build, or install Python from python.org, tick "Add python.exe to PATH", then restart ScreenSense.'
+    };
+  }
+
+  const dependencyStatus = await checkLocalWhisperDependencies(python);
+  if (!dependencyStatus.ok) {
+    localWhisperLastError = dependencyStatus.error;
+    return {
+      ok: false,
+      status: 'missing-dependencies',
+      error: localWhisperLastError
     };
   }
 
@@ -1011,8 +1124,14 @@ function setupIPC() {
     }
   });
 
-  ipcMain.handle('settings:get', (event, key) => store.get(key));
+  ipcMain.handle('settings:get', (event, key) => {
+    if (!ALLOWED_SETTING_KEYS.has(key)) return undefined;
+    return store.get(key);
+  });
   ipcMain.handle('settings:set', (event, key, value) => {
+    if (!ALLOWED_SETTING_KEYS.has(key)) {
+      throw new Error('Unsupported setting key.');
+    }
     store.set(key, value);
     [orbWin, panelWin, overlayWin, settingsWin].forEach(w => {
       if (w && !w.isDestroyed()) w.webContents.send('settings:updated', key, value);
@@ -1067,7 +1186,9 @@ function setupIPC() {
   ipcMain.handle('export:file', async (event, { content, filename, type }) => {
     const downloadsPath = app.getPath('downloads');
     const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filePath = path.join(downloadsPath, `${filename}_${ts}.${type}`);
+    const safeFilename = sanitizeExportName(filename, 'screensense-export');
+    const safeType = sanitizeExportName(type, 'txt').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'txt';
+    const filePath = path.join(downloadsPath, `${safeFilename}_${ts}.${safeType}`);
     fs.writeFileSync(filePath, content, 'utf-8');
     shell.showItemInFolder(filePath);
     return filePath;
@@ -1076,7 +1197,9 @@ function setupIPC() {
   ipcMain.handle('export:binary', async (event, { base64, filename, type }) => {
     const downloadsPath = app.getPath('downloads');
     const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filePath = path.join(downloadsPath, `${filename}_${ts}.${type}`);
+    const safeFilename = sanitizeExportName(filename, 'screensense-export');
+    const safeType = sanitizeExportName(type, 'bin').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'bin';
+    const filePath = path.join(downloadsPath, `${safeFilename}_${ts}.${safeType}`);
     const buffer = Buffer.from(base64, 'base64');
     fs.writeFileSync(filePath, buffer);
     shell.showItemInFolder(filePath);

@@ -47,10 +47,9 @@ That's it. No credit card. No monthly bill.
 - **Call Recording** — capture system audio and save as a file
 - **Session Chat** — ask questions about what was just captured
 
-## Local transcription (optional)
+## Transcription
 
-Live Captions use a local Whisper server that runs on your machine
-for free. The app tries to start it automatically. If it fails:
+Live Captions can use the bundled local Whisper server or your configured Groq/OpenAI API key. Release builds include the local Whisper server, so users do not need to install Python for the default local mode. For development builds, or if the bundled server is missing, run:
 
 ```bash
 pip install -r requirements-local-whisper.txt
@@ -67,6 +66,15 @@ cd ScreenSenseAI
 npm install
 npm start
 ```
+
+To create a release with the bundled local Whisper server:
+
+```bash
+npm run build:whisper
+npm run build:win
+```
+
+Build Windows, macOS, and Linux packages on their matching operating systems so each installer contains the correct local Whisper binary.
 
 ## License
 

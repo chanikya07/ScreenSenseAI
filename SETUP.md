@@ -28,9 +28,9 @@ This lets ScreenSense hear what's playing through your speakers.
 
 > **Note for Google Meet specifically:** Chrome will pick up your microphone directly via the browser. VB-Cable is for capturing video audio (YouTube, VLC, etc.)
 
-### 3. Local Whisper
+### 3. Live Caption Transcription
 
-Live captions and transcript capture run through a local faster-whisper server. No Whisper API key is used.
+Live captions can run through the local faster-whisper server or through your configured Groq/OpenAI API key. Choose the source when you start Live Captions. Local Whisper is still the recommended default, and ScreenSense can fall back to API transcription if local Whisper is unavailable.
 
 Release builds start the bundled local Whisper server automatically in the background. End users should not need to install Python or run `start-local-whisper.bat`.
 
@@ -61,7 +61,7 @@ GOOGLE_AI_STUDIO_API_KEY=...
 MISTRAL_API_KEY=...
 TOGETHER_AI_KEY=...
 ```
-- Live transcription does not need this.
+- Live transcription only needs this when you choose API transcription or want API fallback for local Whisper.
 - Scene Explainer, chat, summaries, and translated/cleaned captions can use your configured BYOK provider.
 
 **Anthropic API Key** (optional — for superior summaries)
@@ -108,7 +108,9 @@ The orb will appear in the bottom-right of your screen.
 
 ### Live Captions
 - Click orb → Select source → Live Captions
-- Audio is captured in chunks and sent to `http://127.0.0.1:5001/transcribe`
+- Choose **Local Whisper** or **API transcription**
+- Local Whisper captures audio in chunks and sends it to `http://127.0.0.1:5001/transcribe`
+- API transcription sends audio chunks to your configured Groq/OpenAI transcription endpoint.
 - A bundled local Whisper server runs faster-whisper locally with zero API cost in release builds.
 - If the app keeps waiting for local Whisper on `127.0.0.1:5001`, the build may be missing the bundled server, antivirus may have blocked it, or the first model download may still be running.
 - Captions appear in the overlay at the bottom of your screen

@@ -260,11 +260,11 @@
     <div class="field">
       <div class="hint">
         Summarizer runs 100% locally via Ollama — no API key required.<br>
-        Live Captions require local Whisper (python local_whisper_server.py).<br>
+        Live Captions can use local Whisper or your Groq/OpenAI API key, with API fallback if local Whisper fails.<br>
         Scene Explainer requires Ollama with llava model.<br>
         BYOK: paste your own provider API key or store free keys in `.env.local` on your server.<br>
         Supported free providers include Groq, Google AI Studio, Mistral, and Together AI.<br>
-        Groq/OpenAI keys are used for chat, summaries, translation, and cleanup.
+        Groq/OpenAI keys are used for API captions, chat, summaries, translation, and cleanup.
       </div>
     </div>
 

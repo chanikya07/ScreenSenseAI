@@ -942,10 +942,10 @@
     <div class="section-label" style="margin-bottom:10px">Choose a mode</div>
     <div class="modes-grid">
 
-      <div class="mode-card captions" onclick="startMode('live-captions')">
+      <div class="mode-card captions" onclick="openLiveCaptionOptions()">
         <div class="mode-icon">💬</div>
         <div class="mode-name">Live Captions</div>
-        <div class="mode-desc">Real-time subtitles with timestamps. Works on Meet, YouTube, and any video.</div>
+        <div class="mode-desc">Choose local Whisper or API transcription before starting real-time subtitles.</div>
         <div class="mode-badge">Live</div>
       </div>
 
@@ -1079,6 +1079,26 @@
       </div>
       <div class="modal-actions">
         <button class="settings-footer-btn" onclick="closeCallRecordingOptions()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="captionModeBackdrop" onclick="closeLiveCaptionOptions(event)">
+    <div class="export-modal" onclick="event.stopPropagation()">
+      <h3>Live captions source</h3>
+      <div class="hint" style="font-size:12px;margin-bottom:8px;color:var(--muted)">Choose how ScreenSense should transcribe audio for this live caption session.</div>
+      <div class="recording-option-list">
+        <button class="recording-option" onclick="selectLiveCaptionMode('local')">
+          <strong>Local Whisper</strong>
+          <span>Uses bundled/local Whisper first. If it fails and an API key is configured, captions fall back to API automatically.</span>
+        </button>
+        <button class="recording-option" onclick="selectLiveCaptionMode('api')">
+          <strong>API transcription</strong>
+          <span>Skips local Whisper and sends audio chunks to your configured Groq or OpenAI API key.</span>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button class="settings-footer-btn" onclick="closeLiveCaptionOptions()">Cancel</button>
       </div>
     </div>
   </div>
@@ -1225,6 +1245,8 @@ function createTask() {
     audioRecordingInProgress: false,
     audioRecordingExporting: false,
     audioRecordingMode: 'system',
+    captionTranscriptionMode: 'local',
+    captionFallbackNoticeShown: false,
     micMuted: false,
     hasCapturedFirstAudioSlice: false,
     sceneIntervalId: null,
@@ -1339,6 +1361,7 @@ function serializeTaskForDetachedWindow(task) {
     sceneEntries: task.sceneEntries,
     faceEntries: task.faceEntries,
     chatMessages: task.chatMessages,
+    captionTranscriptionMode: task.captionTranscriptionMode,
     videoGenerationInProgress: task.videoGenerationInProgress
   };
 }
@@ -1376,6 +1399,8 @@ function hydrateDetachedTask(snapshot) {
     audioRecordingInProgress: false,
     audioRecordingExporting: false,
     audioRecordingMode: 'system',
+    captionTranscriptionMode: snapshot.captionTranscriptionMode || 'local',
+    captionFallbackNoticeShown: false,
     micMuted: false,
     hasCapturedFirstAudioSlice: false,
     sceneIntervalId: null,
@@ -1519,6 +1544,9 @@ async function init() {
   document.getElementById('feed')?.addEventListener('scroll', handleFeedScroll, { passive: true });
   const settings = await window.ss.getAllSettings();
   document.getElementById('langLabel').textContent = LANG_NAMES[settings.preferredOutputLanguage] || settings.preferredOutputLanguage;
+  getActiveTask().captionTranscriptionMode = ['local', 'api'].includes(settings.captionTranscriptionMode)
+    ? settings.captionTranscriptionMode
+    : 'local';
   updateVideoCapability(settings);
 }
 
@@ -1825,6 +1853,30 @@ function selectCallRecordingMode(mode) {
   startMode('call-recording');
 }
 
+function openLiveCaptionOptions() {
+  const sourceId = document.getElementById('sourceSelect')?.value;
+  const task = getActiveTask();
+  if (!sourceId) {
+    addFeedEntry('Choose a screen or window source before starting.', '00:00', 'scene', task);
+    return;
+  }
+  document.getElementById('captionModeBackdrop')?.classList.add('visible');
+}
+
+function closeLiveCaptionOptions(event = null) {
+  if (event && event.target && event.target.id !== 'captionModeBackdrop') return;
+  document.getElementById('captionModeBackdrop')?.classList.remove('visible');
+}
+
+async function selectLiveCaptionMode(mode) {
+  const task = getActiveTask();
+  task.captionTranscriptionMode = mode === 'api' ? 'api' : 'local';
+  task.captionFallbackNoticeShown = false;
+  closeLiveCaptionOptions();
+  await window.ss.setSetting?.('captionTranscriptionMode', task.captionTranscriptionMode);
+  startMode('live-captions');
+}
+
 function startMode(mode) {
   const task = getActiveTask();
   const sourceId = document.getElementById('sourceSelect').value;
@@ -1850,6 +1902,10 @@ function startMode(mode) {
   task.audioRecordingChunks = [];
   task.audioRecordingMimeType = '';
   task.audioRecordingExporting = false;
+  if (mode === 'live-captions' && !['local', 'api'].includes(task.captionTranscriptionMode)) {
+    task.captionTranscriptionMode = 'local';
+  }
+  task.captionFallbackNoticeShown = false;
   if (mode === 'call-recording' && !['system', 'mic', 'both'].includes(task.audioRecordingMode)) {
     task.audioRecordingMode = 'system';
   }
@@ -1955,7 +2011,7 @@ function isLocalWhisperStartupError(error) {
 
 function scheduleProcessingRetry(task, mode, sourceId) {
   if (task.processingRetryTimeoutId) return;
-  const waitMessage = 'Waiting for local Whisper on 127.0.0.1:5001. If Python is installed, ScreenSense will try to start it automatically.';
+  const waitMessage = 'Waiting for local Whisper on 127.0.0.1:5001. If this is a packaged build, the bundled local Whisper server may still be starting. If it never starts, reinstall a build created with npm run build:whisper.';
   if (!task.feedEntries.some((entry) => entry.text === waitMessage)) {
     addFeedEntry(waitMessage, getElapsedTimestamp(task), 'scene', task);
   }
@@ -2477,7 +2533,21 @@ async function startProcessing(task, mode, sourceId) {
   }
 
   if (shouldTranscribeAudio) {
-    await ensureLocalWhisperServer();
+    task.captionTranscriptionMode = resolveCaptionTranscriptionMode(task, settings);
+    if (task.captionTranscriptionMode === 'local') {
+      try {
+        await ensureLocalWhisperServer();
+      } catch (error) {
+        if (canUseApiTranscription(settings)) {
+          task.captionTranscriptionMode = 'api';
+          showCaptionApiFallbackNotice(task, error);
+        } else {
+          throw error;
+        }
+      }
+    } else if (!canUseApiTranscription(settings)) {
+      throw new Error('API transcription needs a Groq gsk_... key or OpenAI sk-... key in Settings.');
+    }
   }
 
   task.captureStream = await getDesktopStream(sourceId, shouldTranscribeAudio);
@@ -2615,12 +2685,28 @@ function startRecorderSlice(task = getActiveTask()) {
   }, Math.max(SEMANTIC_MAX_CHUNK_DURATION_MS, maxDuration));
 }
 
+function resolveCaptionTranscriptionMode(task, settings) {
+  const mode = task.captionTranscriptionMode || settings?.captionTranscriptionMode || 'local';
+  return mode === 'api' ? 'api' : 'local';
+}
+
+function canUseApiTranscription(settings) {
+  return Boolean(getPrimaryApiKey(settings));
+}
+
+function showCaptionApiFallbackNotice(task, error = null) {
+  if (task.captionFallbackNoticeShown) return;
+  task.captionFallbackNoticeShown = true;
+  const detail = error?.message ? ` ${error.message}` : '';
+  addFeedEntry(`Local Whisper is unavailable, so captions are using API transcription.${detail}`, getElapsedTimestamp(task), 'scene', task);
+}
+
 async function transcribeChunk(blob, settings, task = getActiveTask()) {
   if (!(await hasAudibleSignal(blob))) return;
 
   const apiKey = getPrimaryApiKey(settings);
   const provider = apiKey ? getApiProvider(apiKey) : '';
-  const result = await transcribeAudioChunk(blob, settings);
+  const result = await transcribeAudioChunk(blob, settings, task);
   if (!result || !task.active) return;
 
   // If we have multiple segments, try to detect original languages per-segment and translate per-speaker.
@@ -2659,7 +2745,24 @@ async function transcribeChunk(blob, settings, task = getActiveTask()) {
   window.ss.appendTranscript({ text: captionText, time: getElapsedTimestamp(task), taskId: task.id });
 }
 
-async function transcribeAudioChunk(audioBlob, settings) {
+async function transcribeAudioChunk(audioBlob, settings, task = getActiveTask()) {
+  if (resolveCaptionTranscriptionMode(task, settings) === 'api') {
+    return transcribeAudioChunkWithApi(audioBlob, settings);
+  }
+
+  try {
+    return await transcribeAudioChunkWithLocalWhisper(audioBlob, settings);
+  } catch (error) {
+    if (!canUseApiTranscription(settings)) {
+      throw error;
+    }
+    task.captionTranscriptionMode = 'api';
+    showCaptionApiFallbackNotice(task, error);
+    return transcribeAudioChunkWithApi(audioBlob, settings);
+  }
+}
+
+async function transcribeAudioChunkWithLocalWhisper(audioBlob, settings) {
   const formData = new FormData();
   formData.append('audio', audioBlob, 'chunk.webm');
 
@@ -2703,6 +2806,69 @@ async function transcribeAudioChunk(audioBlob, settings) {
   }
 
   return out;
+}
+
+async function transcribeAudioChunkWithApi(audioBlob, settings) {
+  const apiKey = getPrimaryApiKey(settings);
+  if (!apiKey) {
+    throw new Error('API transcription needs a Groq gsk_... key or OpenAI sk-... key in Settings.');
+  }
+
+  const provider = getApiProvider(apiKey);
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'chunk.webm');
+  formData.append('model', TRANSCRIPTION_MODELS[provider].transcription);
+  formData.append('response_format', 'verbose_json');
+
+  const inputLanguage = getInputLanguageCode(settings);
+  if (inputLanguage) {
+    formData.append('language', inputLanguage);
+  }
+
+  let response;
+  try {
+    response = await fetch(getApiBaseUrl(provider) + '/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData
+    });
+  } catch (error) {
+    throw new Error(`${capitalizeProvider(provider)} API transcription is not reachable.`);
+  }
+
+  if (!response.ok) {
+    const errorText = await readProviderError(response);
+    throw new Error(`${capitalizeProvider(provider)} API transcription failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const out = { text: String(data.text || '').trim(), segments: [] };
+  const detectedLanguage = String(data.language || '');
+  if (Array.isArray(data.segments) && data.segments.length) {
+    out.segments = data.segments.map((s) => ({
+      text: String(s.text || '').trim(),
+      start: typeof s.start === 'number' ? s.start : null,
+      end: typeof s.end === 'number' ? s.end : null,
+      language: s.language || s.lang || detectedLanguage
+    })).filter((s) => s.text);
+  } else if (out.text) {
+    out.segments = [{ text: out.text, start: null, end: null, language: detectedLanguage }];
+  }
+  return out;
+}
+
+async function readProviderError(response) {
+  const responseText = await response.text();
+  try {
+    const parsed = JSON.parse(responseText);
+    return parsed?.error?.message || parsed?.error || `HTTP ${response.status}`;
+  } catch (error) {
+    return responseText
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 220) || `HTTP ${response.status}`;
+  }
 }
 
 async function readLocalWhisperError(response) {
