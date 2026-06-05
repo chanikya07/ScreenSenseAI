@@ -18,6 +18,48 @@ function getResourcePath(...segments) {
   return path.join(appRoot, ...segments);
 }
 
+function getLocalWhisperCandidatePaths(fileName) {
+  const candidates = [
+    getResourcePath(fileName)
+  ];
+
+  if (app.isPackaged) {
+    candidates.push(
+      path.join(process.resourcesPath, 'app.asar.unpacked', fileName),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'build', 'local-whisper', fileName),
+      path.join(process.resourcesPath, 'app', fileName)
+    );
+  }
+
+  return candidates;
+}
+
+function firstExistingPath(paths) {
+  return paths.find((candidatePath) => fs.existsSync(candidatePath)) || null;
+}
+
+function getBundledLocalWhisperServerPath() {
+  const platform = process.platform;
+  if (platform === 'win32') {
+    const exePath = firstExistingPath(getLocalWhisperCandidatePaths('local_whisper_server.exe'));
+    if (exePath) return exePath;
+  } else {
+    const unixPath = firstExistingPath(getLocalWhisperCandidatePaths('local_whisper_server'));
+    if (unixPath) {
+      try {
+        fs.chmodSync(unixPath, 0o755);
+      } catch (_) {
+        // best effort, continue even if chmod fails
+      }
+      return unixPath;
+    }
+  }
+
+  const pyPath = firstExistingPath(getLocalWhisperCandidatePaths('local_whisper_server.py'));
+  if (pyPath) return pyPath;
+  return null;
+}
+
 function writeStartupLog(message, error = null) {
   try {
     const logDir = path.join(app.getPath('userData'), 'logs');
@@ -499,6 +541,7 @@ async function ensureLocalWhisperProcess() {
     return { ok: false, status: 'starting', error: localWhisperLastError };
   }
 
+<<<<<<< HEAD
   const bundledServerPath = getBundledWhisperServerPath();
   if (fs.existsSync(bundledServerPath)) {
     return startBundledWhisperServer(bundledServerPath);
@@ -526,6 +569,11 @@ async function ensureLocalWhisperProcess() {
   const serverPath = getResourcePath('local_whisper_server.py');
   if (!fs.existsSync(serverPath)) {
     localWhisperLastError = 'Local Whisper server file was not found. Reinstall ScreenSense or run local_whisper_server.py from the app folder.';
+=======
+  const serverPath = getBundledLocalWhisperServerPath();
+  if (!serverPath) {
+    localWhisperLastError = 'Local Whisper server file was not found. Reinstall ScreenSense or add local_whisper_server.py/local_whisper_server.exe to the app folder.';
+>>>>>>> origin/main
     return {
       ok: false,
       status: 'missing-server',
@@ -533,10 +581,29 @@ async function ensureLocalWhisperProcess() {
     };
   }
 
+  const isPythonScript = path.extname(serverPath).toLowerCase() === '.py';
+  let command;
+  let args = [];
+
+  if (isPythonScript) {
+    const python = await findPythonCommand();
+    if (!python) {
+      return {
+        ok: false,
+        status: 'missing-python',
+        error: 'Python is not installed on PATH. Install Python from python.org, tick "Add python.exe to PATH", then restart ScreenSense.'
+      };
+    }
+    command = python.command;
+    args = [...python.prefixArgs, serverPath];
+  } else {
+    command = serverPath;
+  }
+
   localWhisperLastError = 'Starting local Whisper...';
   localWhisperProcess = spawn(
-    python.command,
-    [...python.prefixArgs, serverPath],
+    command,
+    args,
     {
       cwd: appRoot,
       windowsHide: true,
@@ -552,7 +619,7 @@ async function ensureLocalWhisperProcess() {
   });
   localWhisperProcess.on('error', (error) => {
     localWhisperLastError = error.code === 'ENOENT'
-      ? `Unable to start Python command "${python.command}". Install Python and make sure it is available on PATH, then restart ScreenSense.`
+      ? `Unable to start local Whisper command "${command}". Reinstall ScreenSense and try again.`
       : (error.message || String(error));
     localWhisperProcess = null;
   });
