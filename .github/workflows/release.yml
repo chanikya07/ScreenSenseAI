@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PYTHON_VERSION: '3.11'
 
 jobs:
   build:
@@ -46,12 +46,21 @@ jobs:
           node-version: '16'
           cache: 'npm'
 
+      - name: Setup Python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: requirements-local-whisper.txt
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build app
         run: npm run ${{ matrix.script }}
         env:
+          PYTHON: ${{ steps.setup-python.outputs.python-path }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
@@ -64,11 +73,18 @@ jobs:
             dist/*.dmg
             dist/*.AppImage
             dist/*.deb
+            dist/*.yml
+            dist/*.yaml
+            dist/*.blockmap
             dist/**/*.exe
             dist/**/*.dmg
             dist/**/*.AppImage
             dist/**/*.deb
+            dist/**/*.yml
+            dist/**/*.yaml
+            dist/**/*.blockmap
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload local Whisper artifact
         if: matrix.platform == 'linux'
@@ -81,6 +97,7 @@ jobs:
             start-local-whisper.bat
             start-local-whisper.sh
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload artifacts to release
         if: startsWith(github.ref, 'refs/tags/')
@@ -91,10 +108,16 @@ jobs:
             dist/*.dmg
             dist/*.AppImage
             dist/*.deb
+            dist/*.yml
+            dist/*.yaml
+            dist/*.blockmap
             dist/**/*.exe
             dist/**/*.dmg
             dist/**/*.AppImage
             dist/**/*.deb
+            dist/**/*.yml
+            dist/**/*.yaml
+            dist/**/*.blockmap
           draft: false
           prerelease: false
         env:

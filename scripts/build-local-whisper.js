@@ -12,7 +12,10 @@ const exeName = process.platform === 'win32'
   ? 'local-whisper-server.exe'
   : 'local-whisper-server';
 const outputDir = path.join(root, 'local-whisper-bin', platformDir);
-const pythonCandidates = process.platform === 'win32'
+const configuredPython = process.env.PYTHON
+  ? [{ cmd: process.env.PYTHON, args: [] }]
+  : [];
+const pythonCandidates = configuredPython.concat(process.platform === 'win32'
   ? [
       { cmd: 'py', args: ['-3.13'] },
       { cmd: 'py', args: ['-3'] },
@@ -21,7 +24,7 @@ const pythonCandidates = process.platform === 'win32'
   : [
       { cmd: 'python3', args: [] },
       { cmd: 'python', args: [] }
-    ];
+    ]);
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
