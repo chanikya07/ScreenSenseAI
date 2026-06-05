@@ -2,7 +2,6 @@ from flask import Flask, jsonify, request
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import threading
 import traceback
@@ -16,41 +15,6 @@ except Exception:
     imageio_ffmpeg = None
 
 
-def find_ffmpeg_path():
-    if getattr(sys, 'frozen', False):
-        script_dir = os.path.dirname(sys.executable)
-    else:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    candidates = []
-    if os.name == 'nt':
-        candidates.extend([
-            os.path.join(script_dir, 'ffmpeg.exe'),
-            os.path.join(script_dir, 'ffmpeg', 'bin', 'ffmpeg.exe')
-        ])
-    else:
-        candidates.extend([
-            os.path.join(script_dir, 'ffmpeg'),
-            os.path.join(script_dir, 'ffmpeg', 'bin', 'ffmpeg')
-        ])
-
-    for candidate in candidates:
-        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-            return candidate
-
-    ffmpeg_binary = shutil.which("ffmpeg")
-    if ffmpeg_binary:
-        return ffmpeg_binary
-
-    if imageio_ffmpeg is not None:
-        try:
-            return imageio_ffmpeg.get_ffmpeg_exe()
-        except Exception:
-            return None
-
-    return None
-
-
 app = Flask(__name__)
 model = None
 model_error = None
@@ -61,7 +25,12 @@ model_compute_type = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
 min_audio_seconds = float(os.environ.get("WHISPER_MIN_AUDIO_SECONDS", "0.9"))
 min_audio_rms = float(os.environ.get("WHISPER_MIN_AUDIO_RMS", "0.003"))
 sample_rate = 16000
-ffmpeg_path = find_ffmpeg_path()
+ffmpeg_path = shutil.which("ffmpeg")
+if not ffmpeg_path and imageio_ffmpeg is not None:
+    try:
+        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        ffmpeg_path = None
 ffmpeg_available = bool(ffmpeg_path)
 
 

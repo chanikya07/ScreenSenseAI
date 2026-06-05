@@ -1,20 +1,12 @@
 {
   "name": "screensense-ai",
-<<<<<<< HEAD
   "version": "1.0.3",
-=======
-  "version": "1.0.6",
->>>>>>> origin/main
   "description": "AI-powered screen overlay for captions and scene analysis",
   "author": "chanikya07 <bellamchanikya@gmail.com>",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-<<<<<<< HEAD
     "build:whisper": "node scripts/build-local-whisper.js",
-=======
-    "build:whisper": "python -m pip install --upgrade pip && python -m pip install -r requirements-local-whisper.txt && python scripts/build-local-whisper-server.py",
->>>>>>> origin/main
     "build:win": "npm run build:whisper && electron-builder --win",
     "build:mac": "npm run build:whisper && electron-builder --mac",
     "build:mac:x64": "npm run build:whisper && electron-builder --mac dmg --x64",
@@ -27,7 +19,6 @@
     "directories": {
       "output": "dist"
     },
-<<<<<<< HEAD
     "afterPack": "scripts/verify-packaged-whisper.js",
     "artifactName": "ScreenSense-AI-Setup-${version}.${ext}",
     "files": [
@@ -35,20 +26,10 @@
       "assets/**/*",
       "local-whisper-bin/**/*",
       "local_whisper_server.py",
-=======
-    "artifactName": "ScreenSense-AI-Setup.${ext}",
-    "files": [
-      "src/**/*",
-      "assets/**/*",
-      "local_whisper_server*",
->>>>>>> origin/main
       "requirements-local-whisper.txt",
-      "start-local-whisper.*",
+      "start-local-whisper.bat",
+      "start-local-whisper.sh",
       "package.json"
-    ],
-    "asarUnpack": [
-      "local_whisper_server*",
-      "ffmpeg*"
     ],
     "extraResources": [
       {
@@ -56,17 +37,8 @@
         "to": "assets/"
       },
       {
-<<<<<<< HEAD
         "from": "local-whisper-bin/",
         "to": "local-whisper-bin/"
-=======
-        "from": ".",
-        "to": ".",
-        "filter": [
-          "local_whisper_server.exe",
-          "local_whisper_server"
-        ]
->>>>>>> origin/main
       },
       {
         "from": "local_whisper_server.py",
@@ -110,7 +82,7 @@
       ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.utilities",
-      "artifactName": "ScreenSense-AI-${arch}.${ext}"
+      "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -120,7 +92,7 @@
       "icon": "assets/icon.png",
       "category": "Utility",
       "maintainer": "chanikya07 <bellamchanikya@gmail.com>",
-      "artifactName": "ScreenSense-AI-${arch}.${ext}"
+      "artifactName": "ScreenSense-AI-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

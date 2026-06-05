@@ -172,7 +172,7 @@ export default function Home() {
             Download the Electron app for system audio capture, always-on-top overlay, and offline mode.
           </p>
         </div>
-        <a href="https://github.com/chanikya07/ScreenSenseAI/releases/latest/download/ScreenSense-AI-Setup.exe"
+        <a href="https://github.com/chanikya07/ScreenSenseAI/releases"
           target="_blank" rel="noopener noreferrer"
           style={{ padding: '9px 20px', background: '#24292f', color: '#fff',
             borderRadius: 8, textDecoration: 'none', fontWeight: 600,
