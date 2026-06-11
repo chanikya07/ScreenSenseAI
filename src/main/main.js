@@ -7,6 +7,7 @@ const Store = require('electron-store');
 const fs = require('fs');
 const http = require('http');
 const { execFile, spawn } = require('child_process');
+const { loadEnvLocal, isScreenSenseSource, sanitizeExportName, writeStartupLog: _writeStartupLog } = require('./utils');
 
 function getAppRoot() {
   return app.isPackaged ? process.resourcesPath : path.join(__dirname, '../..');
@@ -19,18 +20,7 @@ function getResourcePath(...segments) {
 }
 
 function writeStartupLog(message, error = null) {
-  try {
-    const logDir = path.join(app.getPath('userData'), 'logs');
-    fs.mkdirSync(logDir, { recursive: true });
-    const detail = error ? ` ${error.stack || error.message || String(error)}` : '';
-    fs.appendFileSync(
-      path.join(logDir, 'startup.log'),
-      `[${new Date().toISOString()}] ${message}${detail}\n`,
-      'utf8'
-    );
-  } catch (_) {
-    // Logging must never be the reason the app cannot start.
-  }
+  _writeStartupLog(message, error, () => path.join(app.getPath('userData'), 'logs'));
 }
 
 process.on('uncaughtException', (error) => {
@@ -41,27 +31,7 @@ process.on('unhandledRejection', (reason) => {
   writeStartupLog('Unhandled rejection:', reason);
 });
 
-function loadEnvLocal(filePath) {
-  try {
-    const envText = fs.readFileSync(filePath, 'utf8');
-    envText.split(/\r?\n/).forEach((line) => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) return;
-      const idx = trimmed.indexOf('=');
-      if (idx < 0) return;
-      const key = trimmed.slice(0, idx).trim();
-      let value = trimmed.slice(idx + 1).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
-      }
-      if (process.env[key] == null) {
-        process.env[key] = value;
-      }
-    });
-  } catch (error) {
-    // ignore missing .env.local or parse errors
-  }
-}
+// loadEnvLocal imported from ./utils
 
 loadEnvLocal(getResourcePath('.env.local'));
 
@@ -264,20 +234,9 @@ function scheduleOrbSnapFallback() {
   }, 900);
 }
 
-function isScreenSenseSource(source) {
-  const name = String(source?.name || '').toLowerCase();
-  return name.includes('screensense') || name.includes('screen sense');
-}
+// isScreenSenseSource imported from ./utils
 
-function sanitizeExportName(value, fallback) {
-  const cleaned = String(value || '')
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-    .replace(/\.+/g, '.')
-    .replace(/^\.+|\.+$/g, '')
-    .trim()
-    .slice(0, 80);
-  return cleaned || fallback;
-}
+// sanitizeExportName imported from ./utils
 
 // ── App Init ───────────────────────────────────────────────────────────
 app.whenReady().then(() => {
