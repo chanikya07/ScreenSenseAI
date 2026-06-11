@@ -7,6 +7,7 @@ const Store = require('electron-store');
 const fs = require('fs');
 const http = require('http');
 const { execFile, spawn } = require('child_process');
+const crypto = require('crypto');
 
 function getAppRoot() {
   return app.isPackaged ? process.resourcesPath : path.join(__dirname, '../..');
@@ -338,9 +339,10 @@ function startKeyRotationServer() {
       return;
     }
 
-    // simple auth: header or query secret
     const authHeader = req.headers['x-rotation-secret'] || '';
-    if (!rotationSecret || (String(authHeader) !== String(rotationSecret))) {
+    const a = Buffer.from(String(authHeader));
+    const b = Buffer.from(String(rotationSecret));
+    if (!rotationSecret || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       res.writeHead(401);
       res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
       return;

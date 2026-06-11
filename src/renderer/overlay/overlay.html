@@ -203,6 +203,12 @@
 </div>
 
 <script>
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+
 let currentMode = null;
 let fontStep = 0; // -1, 0, 1, 2
 let isClickThrough = false;
@@ -232,9 +238,9 @@ function addLine(text, timestamp, type = 'caption', speaker = null) {
   const div = document.createElement('div');
   div.className = `caption-line ${type === 'scene' ? 'scene-line' : ''}`;
 
-  let inner = `<span class="caption-ts">${timestamp}</span>`;
-  if (speaker) inner += `<span class="speaker-tag">${speaker}</span>`;
-  inner += `<span class="caption-text current">${text}</span>`;
+  let inner = `<span class="caption-ts">${escapeHtml(timestamp)}</span>`;
+  if (speaker) inner += `<span class="speaker-tag">${escapeHtml(speaker)}</span>`;
+  inner += `<span class="caption-text current">${escapeHtml(text)}</span>`;
   div.innerHTML = inner;
 
   area.appendChild(div);

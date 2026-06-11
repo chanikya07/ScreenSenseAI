@@ -1106,6 +1106,12 @@
 </div>
 
 <script>
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+
 const LANG_NAMES = {
   default: 'Default (Original)',
   en: 'English', hi: 'Hindi', te: 'Telugu', ta: 'Tamil', fr: 'French',
@@ -1321,7 +1327,7 @@ function renderTaskTabs() {
     tab.addEventListener('dragend', handleTaskTabDragEnd);
     tab.innerHTML = `
       <span class="tab-status"></span>
-      <span class="tab-title">${task.title}</span>
+      <span class="tab-title">${escapeHtml(task.title)}</span>
       <button class="tab-close" title="Close tab">×</button>
     `;
     tab.querySelector('.tab-close').onclick = (event) => {
@@ -1642,7 +1648,7 @@ async function loadSources() {
   availableSources = await window.ss.getSources();
   const sel = document.getElementById('sourceSelect');
   sel.innerHTML = availableSources.map(s =>
-    `<option value="${s.id}">${s.name}</option>`
+    `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`
   ).join('');
   const firstScreenSource = availableSources.find((source) => source.type === 'screen');
   if (firstScreenSource) {
@@ -2074,8 +2080,8 @@ function addFeedEntry(text, time, type = 'transcript') {
   const el = document.createElement('div');
   el.className = 'feed-entry';
   el.innerHTML = `
-    <span class="feed-time">${time}</span>
-    <span class="feed-text ${type === 'scene' ? 'scene-entry' : ''}">${text}</span>
+    <span class="feed-time">${escapeHtml(time)}</span>
+    <span class="feed-text ${type === 'scene' ? 'scene-entry' : ''}">${escapeHtml(text)}</span>
   `;
   feed.appendChild(el);
   if (shouldAutoScrollFeed) scrollFeedToBottom(feed);
@@ -2138,8 +2144,8 @@ function appendFeedEntryToDom(entry) {
   const el = document.createElement('div');
   el.className = 'feed-entry';
   el.innerHTML = `
-    <span class="feed-time">${entry.time}</span>
-    <span class="feed-text ${entry.type === 'scene' ? 'scene-entry' : ''}">${entry.text}</span>
+    <span class="feed-time">${escapeHtml(entry.time)}</span>
+    <span class="feed-text ${entry.type === 'scene' ? 'scene-entry' : ''}">${escapeHtml(entry.text)}</span>
   `;
   feed.appendChild(el);
 }

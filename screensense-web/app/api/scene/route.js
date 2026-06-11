@@ -19,7 +19,14 @@ const PROVIDERS = [
   },
 ];
 
+const MAX_BODY_LENGTH = 10_000_000; // ~10 MB (images are large)
+
 export async function POST(req) {
+  const contentLength = Number(req.headers.get('content-length') || 0);
+  if (contentLength > MAX_BODY_LENGTH) {
+    return Response.json({ error: 'Request body too large' }, { status: 413 });
+  }
+
   const { imageBase64, transcript, userKey } = await req.json();
 
   // If user brought their own key, use it directly
