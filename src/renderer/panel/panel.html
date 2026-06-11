@@ -1639,7 +1639,13 @@ function renderActiveTask() {
 }
 
 async function loadSources() {
-  availableSources = await window.ss.getSources();
+  try {
+    availableSources = await window.ss.getSources();
+  } catch (error) {
+    console.error('Failed to load capture sources:', error);
+    availableSources = [];
+    addFeedEntry(error.message || 'Unable to load screen capture sources.', '00:00', 'scene');
+  }
   const sel = document.getElementById('sourceSelect');
   sel.innerHTML = availableSources.map(s =>
     `<option value="${s.id}">${s.name}</option>`
@@ -2911,6 +2917,7 @@ async function detectLanguageForText(text, provider, apiKey) {
     const code = String(j.choices?.[0]?.message?.content || '').trim().toLowerCase();
     return code.replace(/[^a-z]/g, '').slice(0,2);
   } catch (e) {
+    console.warn('Language detection failed:', e.message || e);
     return '';
   }
 }
@@ -2932,21 +2939,28 @@ async function translateSegmentsIfNeeded(segments, provider, apiKey, targetLang)
   const system = `Translate the following transcript segments into ${LANG_NAMES[targetLang] || targetLang}. Return a JSON array of objects with keys: text, start, end, original_language. Do not add any explanation.`;
   const userContent = segments.map((s, i) => `Segment ${i + 1} [${s.start ?? 'null'}-${s.end ?? 'null'}] (${s.language || 'unknown'}): ${s.text}`).join('\n');
 
-  const res = await fetch(getApiBaseUrl(provider) + '/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: TRANSCRIPTION_MODELS[provider].summary,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: userContent }
-      ],
-      ...(provider === 'groq' ? { max_completion_tokens: 400 } : { max_tokens: 400 })
-    })
-  });
+  let res;
+  try {
+    res = await fetch(getApiBaseUrl(provider) + '/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: TRANSCRIPTION_MODELS[provider].summary,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: userContent }
+        ],
+        ...(provider === 'groq' ? { max_completion_tokens: 400 } : { max_tokens: 400 })
+      })
+    });
+  } catch (fetchError) {
+    console.warn('Segment translation request failed:', fetchError.message || fetchError);
+    await Promise.all(segments.map(async (s) => { if (!s.language) s.language = await detectLanguageForText(s.text, provider, apiKey) || ''; }));
+    return segments;
+  }
 
   if (!res.ok) {
-    // fallback: detect languages then return original segments
+    console.warn('Segment translation failed with status:', res.status);
     await Promise.all(segments.map(async (s) => { if (!s.language) s.language = await detectLanguageForText(s.text, provider, apiKey) || ''; }));
     return segments;
   }
@@ -2954,7 +2968,6 @@ async function translateSegmentsIfNeeded(segments, provider, apiKey, targetLang)
   try {
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content || '';
-    // Try to parse JSON from the model output
     const firstBracket = content.indexOf('[');
     const jsonStr = firstBracket >= 0 ? content.slice(firstBracket) : content;
     const parsed = JSON.parse(jsonStr);
@@ -2965,6 +2978,7 @@ async function translateSegmentsIfNeeded(segments, provider, apiKey, targetLang)
       language: String(p.original_language || segments[i]?.language || '')
     })) : segments;
   } catch (e) {
+    console.warn('Segment translation parse failed:', e.message || e);
     await Promise.all(segments.map(async (s) => { if (!s.language) s.language = await detectLanguageForText(s.text, provider, apiKey) || ''; }));
     return segments;
   }
@@ -3253,7 +3267,13 @@ function startSceneLoop(settings, task = getActiveTask()) {
     task.isSceneLoopRunning = true;
     try {
       const activeRegion = task.selectedRegion && task.selectedRegion.sourceId === task.sourceId ? task.selectedRegion : null;
-      const frameDataUrl = await window.ss.captureFrame(task.sourceId, activeRegion);
+      let frameDataUrl;
+      try {
+        frameDataUrl = await window.ss.captureFrame(task.sourceId, activeRegion);
+      } catch (captureError) {
+        console.warn('Frame capture failed:', captureError.message || captureError);
+        return;
+      }
       if (!frameDataUrl) return;
       if ((task.mode === 'scene-explain' || task.mode === 'face-analysis' || task.mode === 'ai-authenticity') && !immediateSceneNoticeShown) {
         const noticeText = task.mode === 'face-analysis'
@@ -3460,7 +3480,7 @@ async function analyzeScene(frameDataURL, recentTranscript, apiKey, outputLangua
     const data = await response.json();
     return normalizeTranscript(data.choices?.[0]?.message?.content || '');
   } catch (error) {
-    // Fallback to uncompressed if compression fails
+    console.warn('Ollama scene analysis failed, retrying with uncompressed image:', error.message || error);
     const response = await fetch(OLLAMA_CHAT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3502,10 +3522,24 @@ async function analyzeScene(frameDataURL, recentTranscript, apiKey, outputLangua
 
 function compressImageForVision(dataURL, mode) {
   return new Promise((resolve) => {
+    let settled = false;
+    const fallback = () => {
+      if (settled) return;
+      settled = true;
+      resolve(dataURL);
+    };
+
+    const timeout = setTimeout(() => {
+      console.warn('Image compression timed out, using original frame');
+      fallback();
+    }, 5000);
+
     const img = new Image();
     img.onload = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       const canvas = document.createElement('canvas');
-      // Reduce resolution based on mode: face-analysis needs clarity, scene-explain can be smaller
       const maxWidth = mode === 'face-analysis' ? 768 : 640;
       const maxHeight = mode === 'face-analysis' ? 576 : 480;
       const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
@@ -3516,12 +3550,14 @@ function compressImageForVision(dataURL, mode) {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       
-      // Compress with quality setting
       const quality = mode === 'face-analysis' ? 0.75 : 0.65;
-      const compressedURL = canvas.toDataURL('image/jpeg', quality);
-      resolve(compressedURL);
+      resolve(canvas.toDataURL('image/jpeg', quality));
     };
-    img.onerror = () => resolve(dataURL); // Fallback to original if compression fails
+    img.onerror = () => {
+      console.warn('Image compression failed, using original frame');
+      clearTimeout(timeout);
+      fallback();
+    };
     img.src = dataURL;
   });
 }
@@ -3749,7 +3785,9 @@ function cleanupCallRecordingStreams(task = getActiveTask()) {
     stream?.getTracks?.().forEach((track) => track.stop());
   });
   if (task.audioRecordingAudioContext) {
-    task.audioRecordingAudioContext.close().catch(() => {});
+    task.audioRecordingAudioContext.close().catch((error) => {
+      console.warn('AudioContext close failed during cleanup:', error.message || error);
+    });
   }
   task.audioRecordingStream = null;
   task.audioRecordingSystemStream = null;
@@ -4051,7 +4089,12 @@ async function doExport() {
     content = `# ScreenSense Session Notes\n\n**Date:** ${new Date().toLocaleString()}\n**Mode:** ${task.mode}\n**Duration:** ${formatTimestamp(data.duration)}\n\n---\n\n${lines}`;
   }
 
-  await window.ss.exportFile({ content, filename: 'screensense-notes', type: 'md' });
+  try {
+    await window.ss.exportFile({ content, filename: 'screensense-notes', type: 'md' });
+  } catch (err) {
+    console.error('Export error:', err);
+    addFeedEntry(err.message || 'Unable to save notes file.', getElapsedTimestamp(task), 'scene', task);
+  }
 }
 
 async function captureSummarySnapshot(task, settings) {
@@ -4404,7 +4447,13 @@ window.addEventListener('beforeunload', () => {
   tasks.forEach((task) => teardownProcessing(task));
 });
 
-init();
+init().catch((error) => {
+  console.error('Panel initialization failed:', error);
+  const feed = document.getElementById('feed');
+  if (feed) {
+    feed.innerHTML = `<div style="padding:16px;color:#ff6464;font-size:12px;">Panel failed to initialize: ${error.message || error}</div>`;
+  }
+});
 </script>
 </body>
 </html>
