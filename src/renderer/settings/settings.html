@@ -471,19 +471,29 @@ function toggleShow(id, btn) {
 }
 
 async function saveSettings() {
-  await window.ss.setSetting('openaiKey', document.getElementById('openaiKey').value.trim());
-  await window.ss.setSetting('apiKey', document.getElementById('groqKey').value.trim());
-  await window.ss.setSetting('preferredLanguage', document.getElementById('inputLang').value);
-  await window.ss.setSetting('preferredOutputLanguage', document.getElementById('outputLang').value);
-  await window.ss.setSetting('sceneInterval', parseInt(document.getElementById('sceneInterval').value));
-  await window.ss.setSetting('speakerDiarization', document.getElementById('toggleDiarization').dataset.value === 'true');
-  await window.ss.setSetting('autoTranslate', document.getElementById('toggleTranslate').dataset.value === 'true');
-  await window.ss.setSetting('captionCleanup', document.getElementById('toggleCaptionCleanup').dataset.value === 'true');
-  await window.ss.setSetting('showTimestamps', document.getElementById('toggleTimestamps').dataset.value === 'true');
+  try {
+    await window.ss.setSetting('openaiKey', document.getElementById('openaiKey').value.trim());
+    await window.ss.setSetting('apiKey', document.getElementById('groqKey').value.trim());
+    await window.ss.setSetting('preferredLanguage', document.getElementById('inputLang').value);
+    await window.ss.setSetting('preferredOutputLanguage', document.getElementById('outputLang').value);
+    await window.ss.setSetting('sceneInterval', parseInt(document.getElementById('sceneInterval').value));
+    await window.ss.setSetting('speakerDiarization', document.getElementById('toggleDiarization').dataset.value === 'true');
+    await window.ss.setSetting('autoTranslate', document.getElementById('toggleTranslate').dataset.value === 'true');
+    await window.ss.setSetting('captionCleanup', document.getElementById('toggleCaptionCleanup').dataset.value === 'true');
+    await window.ss.setSetting('showTimestamps', document.getElementById('toggleTimestamps').dataset.value === 'true');
 
-  const msg = document.getElementById('savedMsg');
-  msg.classList.add('show');
-  setTimeout(() => msg.classList.remove('show'), 2000);
+    const msg = document.getElementById('savedMsg');
+    msg.classList.add('show');
+    setTimeout(() => msg.classList.remove('show'), 2000);
+  } catch (error) {
+    const msg = document.getElementById('savedMsg');
+    msg.textContent = '✗ Save failed: ' + (error.message || 'Unknown error');
+    msg.classList.add('show');
+    setTimeout(() => {
+      msg.textContent = '✓ Saved';
+      msg.classList.remove('show');
+    }, 4000);
+  }
 }
 
 init();

@@ -59,7 +59,9 @@ function loadEnvLocal(filePath) {
       }
     });
   } catch (error) {
-    // ignore missing .env.local or parse errors
+    if (error.code !== 'ENOENT') {
+      writeStartupLog('Failed to parse .env.local:', error);
+    }
   }
 }
 
@@ -1084,8 +1086,8 @@ function setupIPC() {
         thumbnail: (s.thumbnail && !s.thumbnail.isEmpty()) ? s.thumbnail.toDataURL() : ''
       }));
     } catch (error) {
-      console.error('capture:getSources failed:', error);
-      return [];
+      writeStartupLog('capture:getSources failed:', error);
+      throw new Error(`Screen capture sources unavailable: ${error.message || error}`);
     }
   });
 
@@ -1110,8 +1112,8 @@ function setupIPC() {
       const output = cropThumbnailToRegion(source.thumbnail, region, source);
       return output.toDataURL();
     } catch (error) {
-      console.error('capture:frame failed:', error);
-      return null;
+      writeStartupLog('capture:frame failed:', error);
+      throw new Error(`Frame capture failed: ${error.message || error}`);
     }
   });
 
@@ -1184,26 +1186,36 @@ function setupIPC() {
   });
 
   ipcMain.handle('export:file', async (event, { content, filename, type }) => {
-    const downloadsPath = app.getPath('downloads');
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const safeFilename = sanitizeExportName(filename, 'screensense-export');
-    const safeType = sanitizeExportName(type, 'txt').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'txt';
-    const filePath = path.join(downloadsPath, `${safeFilename}_${ts}.${safeType}`);
-    fs.writeFileSync(filePath, content, 'utf-8');
-    shell.showItemInFolder(filePath);
-    return filePath;
+    try {
+      const downloadsPath = app.getPath('downloads');
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const safeFilename = sanitizeExportName(filename, 'screensense-export');
+      const safeType = sanitizeExportName(type, 'txt').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'txt';
+      const filePath = path.join(downloadsPath, `${safeFilename}_${ts}.${safeType}`);
+      fs.writeFileSync(filePath, content, 'utf-8');
+      shell.showItemInFolder(filePath);
+      return filePath;
+    } catch (error) {
+      writeStartupLog('export:file failed:', error);
+      throw new Error(`File export failed: ${error.message || error}`);
+    }
   });
 
   ipcMain.handle('export:binary', async (event, { base64, filename, type }) => {
-    const downloadsPath = app.getPath('downloads');
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const safeFilename = sanitizeExportName(filename, 'screensense-export');
-    const safeType = sanitizeExportName(type, 'bin').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'bin';
-    const filePath = path.join(downloadsPath, `${safeFilename}_${ts}.${safeType}`);
-    const buffer = Buffer.from(base64, 'base64');
-    fs.writeFileSync(filePath, buffer);
-    shell.showItemInFolder(filePath);
-    return filePath;
+    try {
+      const downloadsPath = app.getPath('downloads');
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const safeFilename = sanitizeExportName(filename, 'screensense-export');
+      const safeType = sanitizeExportName(type, 'bin').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'bin';
+      const filePath = path.join(downloadsPath, `${safeFilename}_${ts}.${safeType}`);
+      const buffer = Buffer.from(base64, 'base64');
+      fs.writeFileSync(filePath, buffer);
+      shell.showItemInFolder(filePath);
+      return filePath;
+    } catch (error) {
+      writeStartupLog('export:binary failed:', error);
+      throw new Error(`Binary export failed: ${error.message || error}`);
+    }
   });
 
   ipcMain.handle('session:getData', () => ({
