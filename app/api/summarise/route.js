@@ -25,8 +25,22 @@ const PROVIDERS = [
   },
 ];
 
+const MAX_BODY_LENGTH = 500_000; // ~500 KB
+
 export async function POST(req) {
+  const contentLength = Number(req.headers.get('content-length') || 0);
+  if (contentLength > MAX_BODY_LENGTH) {
+    return Response.json({ error: 'Request body too large' }, { status: 413 });
+  }
+
   const { transcript, scenes, userKey } = await req.json();
+
+  if (typeof transcript !== 'string' && transcript != null) {
+    return Response.json({ error: 'Invalid transcript field' }, { status: 400 });
+  }
+  if (typeof scenes !== 'string' && scenes != null) {
+    return Response.json({ error: 'Invalid scenes field' }, { status: 400 });
+  }
 
   const systemPrompt = `You are an expert video summarizer. Create structured study notes 
 with headings, bullet points, key concepts, and action items. Be thorough and descriptive.`;

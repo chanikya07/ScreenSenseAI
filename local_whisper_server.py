@@ -16,6 +16,7 @@ except Exception:
 
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25 MB upload limit
 model = None
 model_error = None
 model_lock = threading.Lock()
@@ -84,9 +85,14 @@ def preload_model():
         print(f"Failed to load Whisper model: {exc}", flush=True)
 
 
+ALLOWED_ORIGINS = {"http://localhost", "http://127.0.0.1", "file://"}
+
+
 @app.after_request
 def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
+    origin = request.headers.get("Origin", "")
+    if any(origin == o or origin.startswith(o + ":") or origin.startswith(o + "/") for o in ALLOWED_ORIGINS):
+        response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
@@ -105,7 +111,9 @@ def transcribe():
         return jsonify({"error": "Missing audio upload."}), 400
 
     language = request.form.get("language") or "en"
-    suffix = os.path.splitext(audio.filename or "")[1] or ".webm"
+    raw_suffix = os.path.splitext(audio.filename or "")[1] or ".webm"
+    allowed_suffixes = {".webm", ".wav", ".mp3", ".ogg", ".flac", ".m4a", ".mp4"}
+    suffix = raw_suffix.lower() if raw_suffix.lower() in allowed_suffixes else ".webm"
     temp_path = None
 
     try:
@@ -181,14 +189,9 @@ def health():
         {
             "ok": True,
             "ffmpeg": ffmpeg_available,
-            "ffmpeg_path": ffmpeg_path,
             "model": model_name,
-            "device": model_device,
-            "compute_type": model_compute_type,
             "model_loaded": model is not None,
             "model_error": model_error,
-            "min_audio_seconds": min_audio_seconds,
-            "min_audio_rms": min_audio_rms,
         }
     )
 
