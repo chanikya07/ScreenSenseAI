@@ -202,6 +202,7 @@
   </div>
 </div>
 
+<script src="../shared/constants.js"></script>
 <script>
 let currentMode = null;
 let fontStep = 0; // -1, 0, 1, 2
@@ -214,12 +215,11 @@ const idle = document.getElementById('idleMsg');
 const liveDot = document.getElementById('liveDot');
 const modeLabel = document.getElementById('modeLabel');
 
-const MODE_LABELS = {
-  'live-captions': '💬 Live Captions',
-  'scene-explain': '🎬 Scene Explainer',
-  'transcript': '📝 Transcript Notes',
-  'summarizer': '✨ Summarizer'
-};
+function getOverlayModeLabel(mode) {
+  const icon = MODE_ICONS[mode] || '';
+  const label = MODE_LABELS[mode] || mode;
+  return icon ? `${icon} ${label}` : label;
+}
 
 function addLine(text, timestamp, type = 'caption', speaker = null) {
   idle.classList.remove('show');
@@ -270,7 +270,7 @@ window.ss.on('mode:active', (mode) => {
   window.ss.setOverlayClickThrough(false);
   document.getElementById('ctBtn').style.color = '';
   liveDot.style.display = 'block';
-  modeLabel.textContent = MODE_LABELS[mode] || mode;
+  modeLabel.textContent = getOverlayModeLabel(mode);
   idle.classList.remove('show');
   area.innerHTML = '';
   area.appendChild(idle);

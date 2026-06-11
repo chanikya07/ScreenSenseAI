@@ -1105,14 +1105,11 @@
 
 </div>
 
+<script src="../shared/constants.js"></script>
+<script src="../shared/format-utils.js"></script>
+<script src="../shared/api-utils.js"></script>
+<script src="../shared/window-utils.js"></script>
 <script>
-const LANG_NAMES = {
-  default: 'Default (Original)',
-  en: 'English', hi: 'Hindi', te: 'Telugu', ta: 'Tamil', fr: 'French',
-  de: 'German', es: 'Spanish', zh: 'Chinese', ja: 'Japanese', ko: 'Korean',
-  ar: 'Arabic', pt: 'Portuguese', ru: 'Russian', it: 'Italian', nl: 'Dutch',
-  pl: 'Polish', tr: 'Turkish', vi: 'Vietnamese', th: 'Thai', id: 'Indonesian'
-};
 
 let sessionActive = false;
 let sessionPaused = false;
@@ -1167,47 +1164,8 @@ const LOCAL_WHISPER_TRANSCRIBE_URL = 'http://127.0.0.1:5001/transcribe';
 const SILENCE_RMS_THRESHOLD = 0.003;
 const SILENCE_PEAK_THRESHOLD = 0.02;
 const MAX_FEED_ENTRIES = 500;
-const TRANSCRIPTION_MODELS = {
-  openai: {
-    transcription: 'whisper-1',
-    vision: 'gpt-4o-mini',
-    summary: 'gpt-4o-mini'
-  },
-  groq: {
-    transcription: 'whisper-large-v3',
-    vision: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    summary: 'llama-3.3-70b-versatile'
-  },
-  ollama: {
-    vision: 'llava',
-    summary: 'llama3.2'
-  }
-};
-
-const OLLAMA_CHAT_URL = 'http://localhost:11434/v1/chat/completions';
-const OLLAMA_SUMMARY_MODEL = TRANSCRIPTION_MODELS.ollama.summary;
 const ollamaUrl = OLLAMA_CHAT_URL;
 const ollamaModel = OLLAMA_SUMMARY_MODEL;
-
-const MODE_LABELS = {
-  'live-captions': 'Live Captions',
-  'scene-explain': 'Scene Explainer',
-  'transcript': 'Transcript Notes',
-  'summarizer': 'Summarizer',
-  'face-analysis': 'Face Analyzer',
-  'ai-authenticity': 'AI Fake Detector',
-  'call-recording': 'Call Recording'
-};
-
-const MODE_ICONS = {
-  'live-captions': '💬',
-  'scene-explain': '🎬',
-  'transcript': '📝',
-  'summarizer': '✨',
-  'face-analysis': '😊',
-  'ai-authenticity': '🔍'
-  , 'call-recording': 'REC'
-};
 
 function createTask() {
   taskCounter += 1;
@@ -2084,13 +2042,6 @@ function addFeedEntry(text, time, type = 'transcript') {
     feedEntries.shift();
     feed.firstElementChild?.remove();
   }
-}
-
-function formatTimestamp(ms) {
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
 
 function getElapsedTimestamp() {
@@ -3072,15 +3023,7 @@ async function generateTranscriptNote(entry, task, settings) {
   }
 }
 
-function getOutputLanguageCode(settings) {
-  const targetLanguage = settings?.preferredOutputLanguage || 'default';
-  return targetLanguage === 'default' || targetLanguage === 'auto' ? '' : targetLanguage;
-}
 
-function getInputLanguageCode(settings) {
-  const inputLanguage = settings?.preferredLanguage || 'auto';
-  return inputLanguage === 'auto' || inputLanguage === 'default' ? '' : inputLanguage;
-}
 
 function getRecentTranscriptContext(task = getActiveTask()) {
   return task.transcriptEntries
@@ -3091,9 +3034,7 @@ function getRecentTranscriptContext(task = getActiveTask()) {
     .trim();
 }
 
-function normalizeTranscript(text) {
-  return text.replace(/\s+/g, ' ').trim();
-}
+
 
 async function hasAudibleSignal(audioBlob) {
   if (!audioBlob || audioBlob.size === 0) return false;
@@ -3527,102 +3468,6 @@ function compressImageForVision(dataURL, mode) {
 }
 
 
-function parseApiKeys(value) {
-  if (!value) return [];
-  const raw = Array.isArray(value) ? value : String(value);
-  return raw
-    .split(/[\r\n,;]+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function getPrimaryApiKeys(settings) {
-  const rawKey = settings.apiKey || settings.openaiKey || '';
-  return parseApiKeys(rawKey);
-}
-
-function getPrimaryApiKey(settings) {
-  return getPrimaryApiKeys(settings)[0] || '';
-}
-
-function getApiProvider(apiKey) {
-  return apiKey.startsWith('gsk_') ? 'groq' : 'openai';
-}
-
-function getApiBaseUrl(provider) {
-  return provider === 'groq'
-    ? 'https://api.groq.com/openai/v1'
-    : 'https://api.openai.com/v1';
-}
-
-function getProviderTokenField(provider) {
-  return provider === 'groq' ? 'max_completion_tokens' : 'max_tokens';
-}
-
-async function runProviderChatCompletion(provider, apiKey, body) {
-  const keys = Array.isArray(apiKey) ? apiKey : parseApiKeys(apiKey);
-  if (!keys.length) {
-    throw new Error(`No ${capitalizeProvider(provider)} API key is configured.`);
-  }
-
-  const errors = [];
-  for (const key of keys) {
-    try {
-      const response = await fetch(getApiBaseUrl(provider) + '/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${key}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const responseText = await response.text();
-        let errorMessage = responseText;
-        try {
-          const parsed = JSON.parse(responseText);
-          if (parsed?.error?.message) {
-            errorMessage = parsed.error.message;
-          }
-        } catch (e) {
-          // ignore parse failures
-        }
-
-        if (isApiKeyRetryableError(response.status, errorMessage)) {
-          errors.push(`Key failed (${response.status}): ${errorMessage}`);
-          continue;
-        }
-
-        throw new Error(`${capitalizeProvider(provider)} API failed (${response.status}): ${errorMessage}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      const message = error?.message || String(error);
-      if (isApiKeyRetryableError(0, message)) {
-        errors.push(`Key failed: ${message}`);
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw new Error(`All ${capitalizeProvider(provider)} keys failed. ${errors.join(' | ')}`);
-}
-
-function isApiKeyRetryableError(status, message) {
-  if (!message) return false;
-  const normalized = String(message).toLowerCase();
-  return (
-    status === 429 ||
-    status === 502 ||
-    status === 503 ||
-    status === 504 ||
-    /rate limit|quota|insufficient_quota|over limit|too many requests|throttl|exceeded|invalid api key|invalid_request_error|authorization|unauthorized|forbidden|expired/i.test(normalized)
-  );
-}
-
 async function analyzeAuthenticity(frameDataURL, recentTranscript, apiKey, outputLanguage) {
   const targetLanguage = getOutputLanguageCode({ preferredOutputLanguage: outputLanguage });
   const langInstruction = targetLanguage
@@ -3713,26 +3558,8 @@ Output format: Verdict: [emoji] [Real / Fake-AI / Uncertain] | Confidence = [0-1
   return normalizeTranscript(data.choices?.[0]?.message?.content || 'Unable to determine authenticity.');
 }
 
-function capitalizeProvider(provider) {
-  return provider.charAt(0).toUpperCase() + provider.slice(1);
-}
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
-function toBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const out = String(reader.result || '');
-      const idx = out.indexOf(',');
-      resolve(idx >= 0 ? out.slice(idx + 1) : out);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
 
 function getAudioFileExtension(mimeType = '') {
   if (/ogg/i.test(mimeType)) return 'ogg';
@@ -4392,13 +4219,7 @@ window.ss.on('settings:updated', (key, value) => {
   }
 });
 
-window.ss.on('window:maximized-state', (isMaximized) => {
-  document.querySelector('.panel')?.classList.toggle('maximized', isMaximized);
-  const btn = document.getElementById('maximizeBtn');
-  if (!btn) return;
-  btn.textContent = isMaximized ? '❐' : '□';
-  btn.title = isMaximized ? 'Restore' : 'Maximize';
-});
+setupWindowMaximizeHandler('.panel');
 
 window.addEventListener('beforeunload', () => {
   tasks.forEach((task) => teardownProcessing(task));

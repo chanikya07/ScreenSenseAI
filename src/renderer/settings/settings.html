@@ -410,6 +410,7 @@
   <button class="btn btn-accent" onclick="saveSettings()">Save Settings</button>
 </div>
 
+<script src="../shared/window-utils.js"></script>
 <script>
 async function init() {
   const s = await window.ss.getAllSettings();
@@ -488,13 +489,7 @@ async function saveSettings() {
 
 init();
 
-window.ss.on('window:maximized-state', (isMaximized) => {
-  document.body.classList.toggle('maximized', isMaximized);
-  const btn = document.getElementById('maximizeBtn');
-  if (!btn) return;
-  btn.textContent = isMaximized ? '❐' : '□';
-  btn.title = isMaximized ? 'Restore' : 'Maximize';
-});
+setupWindowMaximizeHandler();
 </script>
 </body>
 </html>
